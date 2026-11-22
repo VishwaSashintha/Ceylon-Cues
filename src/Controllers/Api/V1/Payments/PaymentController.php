@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+namespace CeylonCues\Controllers\Api\V1\Payments;
+
+use CeylonCues\Core\Request;
+use CeylonCues\Core\Response;
+use CeylonCues\Core\Validator;
+use CeylonCues\Services\Notifications\NotificationQueueService;
+use CeylonCues\Services\Payments\PaymentService;
+use Exception;
+
+/**
+ * Payments & Bank Transfer REST API Controller
+ */
+final class PaymentController
+{
+    private PaymentService $payments;
+    private NotificationQueueService $notifications;
+
+    public function __construct()
+    {
+        $this->payments = new PaymentService();
+        $this->notifications = new NotificationQueueService();
+    }
+
+    /**
+     * POST /api/v1/payments/bank-transfer/submit
+     * Customer submits manual transfer evidence slip.
+     */
+    public function submitBankTransfer(Request $request): void
+    {
+        $data = $request->getBody();
+        $v = Validator::validate($data, [
+            'payment_id'         => 'required|integer',
+            'bank_name'          => 'required|string',
+            'account_holder'     => 'required|string',
+            'transfer_reference' => 'required|string',
+            'transfer_date'      => 'required|string',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $submission = $this->payments->submitBankTransferProof(
+                (int)$data['payment_id'],
+                $data['bank_name'],
+                $data['account_holder'],
+                $data['transfer_reference'],
+                $data['transfer_date'],
+                $data['evidence_file_path'] ?? null,
+                $data['evidence_file_name'] ?? null
+            );
+
+            // Queue WhatsApp notification to owner
+            $this->notifications->queueEvent('payment.bank_transfer_submitted', [
+                'order_ref'     => $submission['order_reference'],
+                'customer_name' => $submission['customer_name'],
+                'amount'        => number_format((float)$submission['total_amount'], 2),
+                'bank_name'     => $submission['bank_name'],
+                'transfer_ref'  => $submission['transfer_reference'],
+            ]);
+
+            Response::json($submission, 'Bank transfer details submitted. Pending manual verification.');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * GET /api/v1/payments/bank-transfers/pending (ERP Finance / Owner)
+     */
+    public function listPending(Request $request): void
+    {
+        $list = $this->payments->listPendingBankTransfers();
+        Response::json($list, 'Pending bank transfer submissions retrieved');
+    }
+
+    /**
+     * POST /api/v1/payments/bank-transfers/{id}/verify (ERP Finance / Owner)
+     */
+    public function verifyBankTransfer(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, ['approved' => 'required|boolean']);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $result = $this->payments->verifyBankTransfer(
+                $id,
+                (bool)$data['approved'],
+                (int)$user['id'],
+                $data['rejection_reason'] ?? null
+            );
+
+            $msg = $data['approved'] ? 'Bank transfer approved and marked as paid.' : 'Bank transfer rejected.';
+            Response::json($result, $msg);
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * POST /api/v1/payments/refunds (ERP)
+     */
+    public function refund(Request $request): void
+    {
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, [
+            'order_id'      => 'required|integer',
+            'refund_amount' => 'required|numeric',
+            'reason'        => 'required|string',
+            'refund_method' => 'required|string',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $refund = $this->payments->processRefund(
+                (int)$data['order_id'],
+                (float)$data['refund_amount'],
+                $data['reason'],
+                $data['refund_method'],
+                (int)$user['id']
+            );
+            Response::json($refund, 'Refund processed successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+}

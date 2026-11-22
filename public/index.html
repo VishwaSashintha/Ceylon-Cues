@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ceylon Cues | Premium Billiards, Pool & Snooker Equipment Sri Lanka</title>
+  <meta name="description" content="Sri Lanka's premier destination for professional pool cues, snooker accessories, Aramith balls, Kamui chalk, and cue maintenance.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <!-- Top Announcement Bar -->
+  <div class="top-bar">
+    <div class="container top-bar-inner">
+      <div>
+        <span>🎱 Official Sri Lanka Distributor & Showroom</span> &nbsp;|&nbsp; 
+        <span>🚚 Island-Wide Secure Delivery</span> &nbsp;|&nbsp;
+        <span>💬 WhatsApp: +94 77 123 4567</span>
+      </div>
+      <div>
+        <span class="text-gold" style="font-weight: 700;">🇱🇰 LKR Currency</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Site Navigation -->
+  <header class="site-header">
+    <div class="container navbar">
+      <!-- Logo -->
+      <a href="index.html" class="brand-logo">
+        <img src="uploads/logo/ceylon-cues-logo.png" alt="Ceylon Cues Logo">
+        <div>
+          <div class="brand-title">CEYLON <span>CUES</span></div>
+          <div style="font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em; color: var(--color-gold-dark); text-transform: uppercase;">
+            Billiards & Pool Pro Shop
+          </div>
+        </div>
+      </a>
+
+      <!-- Search Input -->
+      <div class="nav-search">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="store-search-input" placeholder="Search pool cues, chalk, Aramith balls, cases...">
+      </div>
+
+      <!-- Navigation Actions -->
+      <div class="nav-actions">
+        <a href="#wholesale-section" class="nav-btn">Wholesale</a>
+        <a href="#support-section" class="nav-btn" onclick="openSupportModal()">Support</a>
+
+        <!-- Auth state container -->
+        <div id="nav-auth-container" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+          <!-- Injected via JavaScript -->
+          <button class="btn btn-outline btn-sm" onclick="openLoginModal()">Login</button>
+          <button class="btn btn-primary btn-sm" onclick="openRegisterModal()">Register</button>
+        </div>
+
+        <!-- Cart Button -->
+        <button class="nav-btn" style="background-color: #f1f5f2;" onclick="openCartDrawer()">
+          <span>🛒</span>
+          <span style="display: none; @media(min-width: 768px){display:inline;}">Cart</span>
+          <span class="cart-count" id="header-cart-count">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Category Sub-navigation -->
+    <div class="category-nav">
+      <div class="container category-nav-inner" id="category-nav-list">
+        <a href="javascript:void(0)" class="category-nav-link active" data-cat-id="">All Equipment</a>
+        <!-- Categories injected via JS -->
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-tagline">
+          <span>★</span> Professional Tournament Grade <span>★</span>
+        </div>
+        <h1 class="hero-title">
+          Master Every Shot with <span>Tournament Precision.</span>
+        </h1>
+        <p class="hero-subtitle">
+          Sri Lanka's leading supplier of handcrafted cues, carbon composite shafts, authentic Belgian Aramith balls, and championship accessories.
+        </p>
+        <div class="hero-actions">
+          <a href="#catalog-section" class="btn btn-gold btn-lg">Shop Tournament Collection</a>
+          <a href="#wholesale-section" class="btn btn-outline btn-lg" style="color: #ffffff; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.05);">Club & Wholesale Inquiries</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Value Propositions Banner -->
+  <section style="background-color: #ffffff; border-bottom: 1px solid var(--color-border); padding: 1.5rem 0;">
+    <div class="container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="font-size: 1.75rem; color: var(--color-primary);">🛡️</div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem;">100% Authentic Guarantee</div>
+          <div style="font-size: 0.8rem; color: var(--color-text-muted);">Directly imported from official makers</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="font-size: 1.75rem; color: var(--color-primary);">🚚</div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem;">Fast Island-Wide Shipping</div>
+          <div style="font-size: 0.8rem; color: var(--color-text-muted);">Secure insured courier to all 25 districts</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="font-size: 1.75rem; color: var(--color-primary);">🏦</div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem;">Bank Transfer & Card Support</div>
+          <div style="font-size: 0.8rem; color: var(--color-text-muted);">Official verified bank payment options</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="font-size: 1.75rem; color: var(--color-primary);">🏪</div>
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem;">Colombo Physical Showroom</div>
+          <div style="font-size: 0.8rem; color: var(--color-text-muted);">Test before you buy with expert cue-makers</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Product Catalog Section -->
+  <section class="container" id="catalog-section" style="padding: 3rem 1.5rem;">
+    <!-- Catalog Header & Controls -->
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; gap: 1rem;">
+      <div>
+        <div class="badge badge-gold" style="margin-bottom: 0.5rem;">Online Catalog</div>
+        <h2 style="font-size: 2rem; font-weight: 800; color: var(--color-dark);" id="catalog-headline">Tournament & Club Equipment</h2>
+      </div>
+
+      <!-- Filters & Sorting -->
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <select id="filter-tier" class="form-control" style="width: auto; padding: 0.5rem 1rem;">
+          <option value="">All Quality Tiers</option>
+          <option value="tournament">Tournament Grade</option>
+          <option value="premium">Premium</option>
+          <option value="standard">Standard Club</option>
+          <option value="budget">Commercial / Budget</option>
+        </select>
+
+        <select id="filter-sort" class="form-control" style="width: auto; padding: 0.5rem 1rem;">
+          <option value="featured">Featured First</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+          <option value="name_asc">Name: A to Z</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Live Products Grid -->
+    <div class="products-grid" id="products-grid-container">
+      <!-- Loading skeleton will be replaced by JS -->
+      <div style="grid-column: 1/-1; text-align: center; padding: 4rem 0;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔄 Loading authentic cue collection...</div>
+        <div style="color: var(--color-text-muted);">Connecting to Ceylon Cues inventory database</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Wholesale & Billiard Club Solutions Banner -->
+  <section id="wholesale-section" style="background-color: var(--color-dark); color: #ffffff; padding: 4rem 0; margin-top: 3rem;">
+    <div class="container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 3rem; align-items: center;">
+      <div>
+        <div class="badge badge-gold" style="margin-bottom: 1rem;">B2B & Club Solutions</div>
+        <h2 style="font-size: 2.25rem; font-weight: 800; line-height: 1.2; margin-bottom: 1rem;">
+          Equip Your Billiard Club or Sports Resort with Ceylon Cues
+        </h2>
+        <p style="color: var(--color-dark-text-muted); font-size: 1.05rem; line-height: 1.6; margin-bottom: 1.5rem;">
+          We supply luxury hotels, pool halls, recreational clubs, and commercial game centers across Sri Lanka. Take advantage of tiered wholesale pricing, bulk cloth re-felting, and dedicated maintenance support.
+        </p>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem; color: #ffffff; font-weight: 600;">
+          <li>✓ Special bulk discount tiers starting at just 3 units</li>
+          <li>✓ Official Strachan tournament cloth and commercial house cues</li>
+          <li>✓ Official commercial tax invoices and direct supplier warranties</li>
+        </ul>
+      </div>
+
+      <!-- Wholesale Enquiry Form -->
+      <div class="card" style="background-color: #17221d; border-color: #24352d; color: #ffffff;">
+        <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: var(--color-gold-light);">
+          Submit a Wholesale or Club Enquiry
+        </h3>
+        <form id="wholesale-enquiry-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" style="color: #c0cfc7;">Business / Club Name *</label>
+              <input type="text" name="business_name" class="form-control" style="background-color: #0c120f; border-color: #24352d; color: #ffffff;" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="color: #c0cfc7;">Contact Person *</label>
+              <input type="text" name="contact_name" class="form-control" style="background-color: #0c120f; border-color: #24352d; color: #ffffff;" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" style="color: #c0cfc7;">Email Address *</label>
+              <input type="email" name="email" class="form-control" style="background-color: #0c120f; border-color: #24352d; color: #ffffff;" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="color: #c0cfc7;">Phone Number *</label>
+              <input type="tel" name="phone" class="form-control" style="background-color: #0c120f; border-color: #24352d; color: #ffffff;" placeholder="e.g. 0771234567" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color: #c0cfc7;">Equipment Needed & Quantities *</label>
+            <textarea name="message" class="form-control" rows="3" style="background-color: #0c120f; border-color: #24352d; color: #ffffff;" placeholder="Specify cues, table cloth, ball sets, chalk, or maintenance gear..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-gold" style="width: 100%;">Submit Wholesale Request</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="background-color: #0a0f0d; color: var(--color-dark-text-muted); padding: 4rem 0 2rem 0; border-top: 1px solid var(--color-dark-border);">
+    <div class="container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2.5rem; margin-bottom: 3rem;">
+      <div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: #ffffff; margin-bottom: 0.75rem;">
+          CEYLON <span style="color: var(--color-primary-light);">CUES</span>
+        </div>
+        <p style="font-size: 0.875rem; line-height: 1.6; margin-bottom: 1rem;">
+          Sri Lanka's official authority in premium pool, billiards, and snooker equipment. Centralized warehouse stock, physical showroom, and island-wide delivery.
+        </p>
+        <div style="font-size: 0.85rem; color: #ffffff;">
+          <strong>Showroom Address:</strong><br>
+          No. 45/A, Galle Road, Colombo 03, Sri Lanka.
+        </div>
+      </div>
+
+      <div>
+        <div style="font-weight: 700; color: #ffffff; font-size: 1rem; margin-bottom: 1rem;">Quick Navigation</div>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem;">
+          <li><a href="#catalog-section">Shop Collection</a></li>
+          <li><a href="#wholesale-section">Wholesale Enquiries</a></li>
+          <li><a href="javascript:void(0)" onclick="openSupportModal()">Customer Support</a></li>
+          <li><a href="javascript:void(0)" onclick="openOrderTrackingModal()">Track Order</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-weight: 700; color: #ffffff; font-size: 1rem; margin-bottom: 1rem;">Verified Bank Details</div>
+        <p style="font-size: 0.825rem; line-height: 1.5; margin-bottom: 0.75rem;">
+          Direct transfers accepted for online and wholesale orders:
+        </p>
+        <div style="background-color: #121a16; padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.8rem; border: 1px solid #1e2c26;">
+          <strong style="color: var(--color-gold-light);">Bank of Ceylon (BOC)</strong><br>
+          Account: 0089201938<br>
+          Name: Ceylon Cues PVT LTD<br>
+          Branch: Corporate Branch Colombo
+        </div>
+      </div>
+
+      <div>
+        <div style="font-weight: 700; color: #ffffff; font-size: 1rem; margin-bottom: 1rem;">Staff & Administration</div>
+        <p style="font-size: 0.85rem; margin-bottom: 1rem;">Authorized personnel and cashier access:</p>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <a href="erp.html" class="btn btn-outline btn-sm" style="border-color: #2b3a32; color: #ffffff; justify-content: flex-start;">
+            📊 Central ERP Dashboard
+          </a>
+          <a href="pos.html" class="btn btn-outline btn-sm" style="border-color: #2b3a32; color: #ffffff; justify-content: flex-start;">
+            🖥️ Retail Shop POS Terminal
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="container" style="border-top: 1px solid #19231f; padding-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; flex-wrap: wrap; gap: 1rem;">
+      <div>© 2026 Ceylon Cues. All rights reserved. Sri Lanka.</div>
+      <div style="display: flex; gap: 1rem;">
+        <span>Privacy Policy</span>
+        <span>Terms of Service</span>
+        <span>Delivery Guarantee</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Slide-Over Cart Drawer -->
+  <div class="cart-drawer-backdrop" id="cart-drawer-backdrop">
+    <div class="cart-drawer">
+      <div class="cart-drawer-header">
+        <div style="font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>🛒</span> Shopping Cart
+        </div>
+        <button class="modal-close" onclick="closeCartDrawer()">×</button>
+      </div>
+
+      <div class="cart-drawer-body" id="cart-items-list">
+        <!-- Rendered by JS -->
+        <div style="text-align: center; padding: 3rem 0; color: var(--color-text-muted);">
+          Your cart is currently empty.
+        </div>
+      </div>
+
+      <div class="cart-drawer-footer">
+        <div class="cart-subtotal-row">
+          <span>Subtotal:</span>
+          <span id="cart-drawer-subtotal" class="text-emerald">LKR 0.00</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn btn-outline" style="flex: 1;" onclick="clearCartAction()">Clear</button>
+          <button class="btn btn-primary" style="flex: 2;" id="cart-checkout-btn" onclick="openCheckoutModal()">Proceed to Checkout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Details Modal -->
+  <div class="modal-backdrop" id="product-modal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-product-title">Product Details</h3>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body" id="modal-product-body">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Checkout Modal -->
+  <div class="modal-backdrop" id="checkout-modal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">Secure Checkout — Ceylon Cues</h3>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body">
+        <form id="checkout-form">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
+            <!-- Customer & Shipping Form -->
+            <div>
+              <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; border-bottom: 2px solid var(--color-border); padding-bottom: 0.5rem;">
+                1. Delivery & Contact Details
+              </h4>
+              <div class="form-group">
+                <label class="form-label">Full Name *</label>
+                <input type="text" id="checkout-name" class="form-control" required>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Phone Number *</label>
+                  <input type="tel" id="checkout-phone" class="form-control" placeholder="0771234567" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input type="email" id="checkout-email" class="form-control" placeholder="Optional for updates">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Delivery District *</label>
+                <select id="checkout-district" class="form-control" required onchange="recalculateCheckout()">
+                  <option value="Colombo">Colombo (LKR 350 / Free over 10k)</option>
+                  <option value="Gampaha">Gampaha (LKR 450)</option>
+                  <option value="Kalutara">Kalutara (LKR 500)</option>
+                  <option value="Kandy">Kandy (LKR 550)</option>
+                  <option value="Galle">Galle (LKR 550)</option>
+                  <option value="Matara">Matara (LKR 600)</option>
+                  <option value="Other">Other Districts (Island-Wide LKR 650)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Delivery Method *</label>
+                <select id="checkout-del-method" class="form-control" onchange="recalculateCheckout()">
+                  <option value="home_delivery">Direct Courier Home Delivery</option>
+                  <option value="store_pickup">Store Pickup (Colombo 03 Showroom — FREE)</option>
+                </select>
+              </div>
+              <div class="form-group" id="address-field-group">
+                <label class="form-label">Delivery Street Address *</label>
+                <textarea id="checkout-address" class="form-control" rows="2" placeholder="House/Apartment number, street, city..." required></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Order Notes / Delivery Instructions</label>
+                <input type="text" id="checkout-notes" class="form-control" placeholder="Any special cues setup or delivery notes">
+              </div>
+            </div>
+
+            <!-- Payment & Summary -->
+            <div>
+              <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; border-bottom: 2px solid var(--color-border); padding-bottom: 0.5rem;">
+                2. Payment Method
+              </h4>
+              
+              <!-- Payment Radios -->
+              <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+                <label class="card" style="padding: 1rem; cursor: pointer; display: flex; align-items: flex-start; gap: 0.75rem;">
+                  <input type="radio" name="payment_method" value="bank_transfer" checked style="margin-top: 0.25rem;">
+                  <div>
+                    <div style="font-weight: 700;">Direct Bank Transfer (Recommended)</div>
+                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">Transfer via BOC, Commercial, or Sampath Bank and upload your receipt reference.</div>
+                  </div>
+                </label>
+
+                <label class="card" style="padding: 1rem; cursor: pointer; display: flex; align-items: flex-start; gap: 0.75rem;">
+                  <input type="radio" name="payment_method" value="cash" style="margin-top: 0.25rem;">
+                  <div>
+                    <div style="font-weight: 700;">Cash on Delivery (COD) / Pay at Pickup</div>
+                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">Pay cash upon physical arrival or delivery handover.</div>
+                  </div>
+                </label>
+
+                <label class="card" style="padding: 1rem; opacity: 0.85; display: flex; align-items: flex-start; gap: 0.75rem;">
+                  <input type="radio" name="payment_method" value="card" disabled style="margin-top: 0.25rem;">
+                  <div>
+                    <div style="font-weight: 700;">Credit / Debit Card (Online Gateway)</div>
+                    <div style="font-size: 0.8rem; color: var(--color-warning);">
+                      Gateway Integration: Pending Merchant Production Activation. Use Bank Transfer or COD.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Coupon Code -->
+              <div class="form-group">
+                <label class="form-label">Promotional / Discount Coupon</label>
+                <div style="display: flex; gap: 0.5rem;">
+                  <input type="text" id="checkout-coupon" class="form-control" placeholder="Enter coupon code" style="text-transform: uppercase;">
+                  <button type="button" class="btn btn-outline" onclick="applyCouponCode()">Apply</button>
+                </div>
+                <div id="coupon-feedback" style="font-size: 0.8rem; margin-top: 0.35rem;"></div>
+              </div>
+
+              <!-- Order Calculations Box -->
+              <div class="card" style="background-color: #fafbfa; padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                  <span>Subtotal:</span>
+                  <span id="calc-subtotal" style="font-weight: 600;">LKR 0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                  <span>Delivery Charge:</span>
+                  <span id="calc-delivery" style="font-weight: 600;">LKR 0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--color-primary);" id="calc-discount-row">
+                  <span>Discount:</span>
+                  <span id="calc-discount" style="font-weight: 600;">- LKR 0.00</span>
+                </div>
+                <hr style="border: 0; border-top: 1px dashed var(--color-border); margin: 0.75rem 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 1.25rem; font-weight: 800;">
+                  <span>Total Due:</span>
+                  <span id="calc-total" class="text-emerald">LKR 0.00</span>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-gold btn-lg" style="width: 100%; margin-top: 1.25rem;" id="btn-submit-order">
+                Confirm & Place Order
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Success & Bank Slip Upload Modal -->
+  <div class="modal-backdrop" id="order-success-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--color-primary);">🎉 Order Successfully Placed!</h3>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body" id="order-success-body">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Support Modal -->
+  <div class="modal-backdrop" id="support-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Ceylon Cues Customer Support</h3>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body">
+        <form id="support-ticket-form">
+          <div class="form-group">
+            <label class="form-label">Subject *</label>
+            <input type="text" name="subject" class="form-control" placeholder="e.g. Inquiring about cue tip replacement" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Category *</label>
+              <select name="category" class="form-control" required>
+                <option value="order">Order Inquiry</option>
+                <option value="product">Product Specification</option>
+                <option value="delivery">Delivery & Tracking</option>
+                <option value="warranty">Warranty & Maintenance</option>
+                <option value="other">General Inquiry</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Priority</label>
+              <select name="priority" class="form-control">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Detailed Message *</label>
+            <textarea name="message" class="form-control" rows="4" placeholder="How can our cue specialists assist you today?" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Support Ticket</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Tracking Modal -->
+  <div class="modal-backdrop" id="tracking-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Track Your Ceylon Cues Order</h3>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Enter Order Reference Number</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="track-order-ref" class="form-control" placeholder="e.g. CC-ORD-2026-000007">
+            <button type="button" class="btn btn-primary" onclick="lookupOrderTracking()">Track</button>
+          </div>
+        </div>
+        <div id="tracking-result" style="margin-top: 1.5rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div class="modal-backdrop" id="login-modal">
+    <div class="modal-dialog" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Customer & Staff Login</h3>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body">
+        <form id="login-form">
+          <div class="form-group">
+            <label class="form-label">Email Address *</label>
+            <input type="email" id="login-email" class="form-control" required placeholder="name@domain.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password *</label>
+            <input type="password" id="login-password" class="form-control" required placeholder="••••••••">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Sign In</button>
+        </form>
+        <div style="text-align: center; margin-top: 1.25rem; font-size: 0.85rem; color: var(--color-text-muted);">
+          Don't have an account? <a href="javascript:void(0)" onclick="closeModal('login-modal'); openRegisterModal();" class="text-emerald" style="font-weight: 700;">Register Here</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div class="modal-backdrop" id="register-modal">
+    <div class="modal-dialog" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Create Customer Account</h3>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body">
+        <form id="register-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input type="text" id="reg-first-name" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name *</label>
+              <input type="text" id="reg-last-name" class="form-control" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address *</label>
+            <input type="email" id="reg-email" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number *</label>
+            <input type="tel" id="reg-phone" class="form-control" placeholder="0771234567" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password (Min. 8 characters) *</label>
+            <input type="password" id="reg-password" class="form-control" required minlength="8">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm Password *</label>
+            <input type="password" id="reg-password-confirm" class="form-control" required minlength="8">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Account & Order History Modal -->
+  <div class="modal-backdrop" id="account-modal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">My Ceylon Cues Account</h3>
+        <button class="modal-close" data-close-modal>×</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--color-border); margin-bottom: 1.5rem;">
+          <button class="btn btn-outline btn-sm active" id="tab-btn-orders" onclick="switchAccountTab('orders')">Order History</button>
+          <button class="btn btn-outline btn-sm" id="tab-btn-tickets" onclick="switchAccountTab('tickets')">Support Tickets</button>
+        </div>
+        <div id="account-tab-orders">
+          <div id="customer-orders-list">Loading orders...</div>
+        </div>
+        <div id="account-tab-tickets" style="display: none;">
+          <div id="customer-tickets-list">Loading support history...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared Scripts -->
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/storefront.js"></script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceylon Cues — Backend REST API",
+    "description": "Complete E-Commerce, ERP, Multi-Location Warehouse & Retail POS Backend System for Ceylon Cues (Sri Lanka). Operating currency: LKR. Timezone: Asia/Colombo.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Ceylon Cues Engineering",
+      "email": "support@ceyloncues.lk"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost/ceylon-cues/public/api/v1",
+      "description": "Local XAMPP Development Server"
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate user and receive 64-byte session token",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "owner@ceyloncues.lk" },
+                  "password": { "type": "string", "example": "CeylonCuesOwner2026!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful. Returns user profile and session token." },
+          "401": { "description": "Invalid credentials or account deactivated." }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Customer registration (customers only)",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["first_name", "last_name", "email", "phone", "password", "password_confirmation"],
+                "properties": {
+                  "first_name": { "type": "string", "example": "Kasun" },
+                  "last_name": { "type": "string", "example": "Perera" },
+                  "email": { "type": "string", "format": "email", "example": "kasun@example.com" },
+                  "phone": { "type": "string", "example": "+94771234567" },
+                  "password": { "type": "string", "format": "password", "example": "StrongPass123!" },
+                  "password_confirmation": { "type": "string", "format": "password", "example": "StrongPass123!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Customer registered successfully." },
+          "400": { "description": "Validation error or email already in use." }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Retrieve authenticated user profile",
+        "tags": ["Authentication"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Profile details retrieved." },
+          "401": { "description": "Unauthorized." }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "summary": "List published products with search, category and quality tier filters",
+        "tags": ["Storefront & Catalog"],
+        "parameters": [
+          { "name": "category_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "quality_tier", "in": "query", "schema": { "type": "string", "enum": ["budget", "standard", "premium"] } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of products." }
+        }
+      },
+      "post": {
+        "summary": "Create product (ERP Staff/Owner)",
+        "tags": ["ERP Inventory"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "sku", "category_id", "retail_price"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "sku": { "type": "string" },
+                  "barcode": { "type": "string" },
+                  "category_id": { "type": "integer" },
+                  "retail_price": { "type": "number", "format": "float" },
+                  "wholesale_price": { "type": "number", "format": "float" },
+                  "cost_price": { "type": "number", "format": "float" },
+                  "quality_tier": { "type": "string", "enum": ["budget", "standard", "premium"] },
+                  "online_stock_allocation": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Product created successfully." }
+        }
+      }
+    },
+    "/cart": {
+      "get": {
+        "summary": "Get current shopping cart contents",
+        "tags": ["Shopping Cart"],
+        "responses": {
+          "200": { "description": "Cart items, weights, and subtotals in LKR." }
+        }
+      },
+      "delete": {
+        "summary": "Clear cart",
+        "tags": ["Shopping Cart"],
+        "responses": {
+          "200": { "description": "Cart cleared." }
+        }
+      }
+    },
+    "/cart/items": {
+      "post": {
+        "summary": "Add product to cart",
+        "tags": ["Shopping Cart"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["product_id", "quantity"],
+                "properties": {
+                  "product_id": { "type": "integer" },
+                  "quantity": { "type": "integer", "minimum": 1 },
+                  "variant_id": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Item added to cart." }
+        }
+      }
+    },
+    "/checkout/calculate": {
+      "post": {
+        "summary": "Calculate delivery charge and discounts before checkout",
+        "tags": ["Checkout"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["subtotal"],
+                "properties": {
+                  "subtotal": { "type": "number" },
+                  "district": { "type": "string", "example": "Colombo" },
+                  "delivery_method": { "type": "string", "enum": ["home_delivery", "courier", "shop_collection", "warehouse_dispatch"] },
+                  "coupon_code": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Calculation summary with exact delivery and discounts." }
+        }
+      }
+    },
+    "/checkout/place-order": {
+      "post": {
+        "summary": "Convert cart into confirmed customer order",
+        "tags": ["Checkout"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["customer_name", "customer_phone", "payment_method", "delivery_method"],
+                "properties": {
+                  "customer_name": { "type": "string" },
+                  "customer_phone": { "type": "string" },
+                  "customer_email": { "type": "string" },
+                  "payment_method": { "type": "string", "enum": ["bank_transfer", "visa", "mastercard", "koko", "mintpay", "cod"] },
+                  "delivery_method": { "type": "string" },
+                  "district": { "type": "string" },
+                  "shipping_address": { "type": "object" },
+                  "coupon_code": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Order placed and physical stock reserved." }
+        }
+      }
+    },
+    "/pos/sales": {
+      "post": {
+        "summary": "Process retail cashier sale at the physical shop",
+        "tags": ["Retail POS"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["session_id", "items", "payment_method"],
+                "properties": {
+                  "session_id": { "type": "integer" },
+                  "items": { "type": "array" },
+                  "payment_method": { "type": "string", "enum": ["cash", "card", "bank_transfer"] },
+                  "cash_received": { "type": "number" },
+                  "card_reference": { "type": "string" },
+                  "discount_amount": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "POS transaction complete. Shop inventory deducted immediately." }
+        }
+      }
+    },
+    "/inventory/transfers": {
+      "post": {
+        "summary": "Create stock transfer between locations (e.g. Warehouse -> Shop)",
+        "tags": ["ERP Inventory"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": { "description": "Stock transfer requested." }
+        }
+      }
+    },
+    "/inventory/transfers/{id}/complete": {
+      "post": {
+        "summary": "Approve and complete stock transfer",
+        "tags": ["ERP Inventory"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Physical quantities moved and double ledger recorded." }
+        }
+      }
+    },
+    "/payments/bank-transfers/pending": {
+      "get": {
+        "summary": "List customer bank transfer slips awaiting verification",
+        "tags": ["ERP Payments"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of pending bank transfers." }
+        }
+      }
+    },
+    "/payments/bank-transfers/{id}/verify": {
+      "post": {
+        "summary": "Approve or reject customer bank transfer payment",
+        "tags": ["ERP Payments"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Verification updated. Order marked paid if approved." }
+        }
+      }
+    },
+    "/reports/executive-metrics": {
+      "get": {
+        "summary": "Executive summary of revenues, inventory valuation, expenses, and alerts",
+        "tags": ["ERP Reporting"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Executive dashboard metrics in LKR." }
+        }
+      }
+    },
+    "/settings/backup": {
+      "post": {
+        "summary": "Generate complete database SQL dump backup (Owner only)",
+        "tags": ["Owner Administration"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Database backup created in storage/backups/." }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "HEX64",
+        "description": "64-character hexadecimal session token returned upon login"
+      }
+    }
+  }
+}
