@@ -106,4 +106,56 @@ final class PosController
             Response::error($e->getMessage(), 400);
         }
     }
+
+    public function listSessions(Request $request): void
+    {
+        $limit = min(100, max(1, (int)$request->getParam('limit', 50)));
+        $filters = [
+            'cashier_id'  => $request->getParam('cashier_id'),
+            'location_id' => $request->getParam('location_id'),
+        ];
+        $sessions = $this->pos->listSessions($filters, $limit);
+        Response::json($sessions, 'POS register sessions retrieved');
+    }
+
+    public function showSession(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $session = $this->pos->getSession($id);
+        if (!$session) {
+            Response::notFound('POS session not found');
+        }
+        Response::json($session, 'POS session details retrieved');
+    }
+
+    public function listTransactions(Request $request): void
+    {
+        $page = max(1, (int)$request->getParam('page', 1));
+        $perPage = min(100, max(1, (int)$request->getParam('per_page', 20)));
+        $filters = [
+            'session_id'     => $request->getParam('session_id'),
+            'payment_method' => $request->getParam('payment_method'),
+            'search'         => $request->getParam('search'),
+        ];
+        $result = $this->pos->listTransactions($filters, $page, $perPage);
+        Response::paginated($result['data'], $result['total'], $result['current_page'], $result['per_page'], 'POS transactions retrieved');
+    }
+
+    public function showTransaction(Request $request): void
+    {
+        $id = $request->getRouteParam('id');
+        $tx = $this->pos->getTransaction(is_numeric($id) ? (int)$id : $id);
+        if (!$tx) {
+            Response::notFound('POS transaction record not found');
+        }
+        Response::json($tx, 'POS transaction receipt details retrieved');
+    }
+
+    public function dailySummary(Request $request): void
+    {
+        $date = $request->getParam('date');
+        $locId = $request->getParam('location_id') ? (int)$request->getParam('location_id') : null;
+        $summary = $this->pos->getDailySummary($date, $locId);
+        Response::json($summary, 'POS daily sales summary retrieved');
+    }
 }

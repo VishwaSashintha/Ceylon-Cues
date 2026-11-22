@@ -11,7 +11,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost/ceylon-cues/public/api/v1",
+      "url": "http://localhost/ceylon-cues/backend/public/api/v1",
       "description": "Local XAMPP Development Server"
     }
   ],

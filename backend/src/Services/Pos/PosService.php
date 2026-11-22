@@ -218,4 +218,159 @@ final class PosService
         $session = $stmt->fetch();
         return $session ?: null;
     }
+
+    public function listSessions(array $filters = [], int $limit = 50): array
+    {
+        $where = ['1=1'];
+        $params = [];
+        if (!empty($filters['cashier_id'])) {
+            $where[] = 's.cashier_id = :cid';
+            $params[':cid'] = (int)$filters['cashier_id'];
+        }
+        if (!empty($filters['location_id'])) {
+            $where[] = 's.location_id = :lid';
+            $params[':lid'] = (int)$filters['location_id'];
+        }
+        $whereClause = implode(' AND ', $where);
+
+        $stmt = $this->db->prepare("
+            SELECT s.*, u.first_name as cashier_name, l.name as location_name
+            FROM pos_sessions s
+            JOIN users u ON s.cashier_id = u.id
+            JOIN inventory_locations l ON s.location_id = l.id
+            WHERE {$whereClause}
+            ORDER BY s.created_at DESC
+            LIMIT :limit
+        ");
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function getTransaction(int|string $identifier): ?array
+    {
+        $column = is_numeric($identifier) ? 'pt.id' : 'pt.reference_number';
+        $stmt = $this->db->prepare("
+            SELECT pt.*, o.reference_number as order_reference, o.total_amount, o.subtotal, o.discount_amount,
+                   u.first_name as cashier_name, l.name as location_name
+            FROM pos_transactions pt
+            JOIN orders o ON pt.order_id = o.id
+            JOIN users u ON pt.cashier_id = u.id
+            JOIN inventory_locations l ON pt.location_id = l.id
+            WHERE {$column} = :id
+            LIMIT 1
+        ");
+        $stmt->execute([':id' => $identifier]);
+        $tx = $stmt->fetch();
+        if (!$tx) {
+            return null;
+        }
+
+        $stmtItems = $this->db->prepare("
+            SELECT oi.*, p.name as product_name, p.sku
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id = :oid
+        ");
+        $stmtItems->execute([':oid' => $tx['order_id']]);
+        $tx['items'] = $stmtItems->fetchAll();
+
+        return $tx;
+    }
+
+    public function listTransactions(array $filters = [], int $page = 1, int $perPage = 20): array
+    {
+        $offset = max(0, ($page - 1) * $perPage);
+        $where = ['1=1'];
+        $params = [];
+
+        if (!empty($filters['session_id'])) {
+            $where[] = 'pt.session_id = :sid';
+            $params[':sid'] = (int)$filters['session_id'];
+        }
+        if (!empty($filters['payment_method'])) {
+            $where[] = 'pt.payment_method = :pmethod';
+            $params[':pmethod'] = $filters['payment_method'];
+        }
+        if (!empty($filters['search'])) {
+            $where[] = '(pt.reference_number LIKE :search OR o.reference_number LIKE :search)';
+            $params[':search'] = '%' . $filters['search'] . '%';
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        $countStmt = $this->db->prepare("
+            SELECT COUNT(*) FROM pos_transactions pt
+            JOIN orders o ON pt.order_id = o.id
+            WHERE {$whereClause}
+        ");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+
+        $stmt = $this->db->prepare("
+            SELECT pt.*, o.reference_number as order_reference, o.total_amount,
+                   u.first_name as cashier_name, l.name as location_name
+            FROM pos_transactions pt
+            JOIN orders o ON pt.order_id = o.id
+            JOIN users u ON pt.cashier_id = u.id
+            JOIN inventory_locations l ON pt.location_id = l.id
+            WHERE {$whereClause}
+            ORDER BY pt.created_at DESC
+            LIMIT {$perPage} OFFSET {$offset}
+        ");
+        $stmt->execute($params);
+        $items = $stmt->fetchAll();
+
+        return [
+            'data'         => $items,
+            'total'        => $total,
+            'current_page' => $page,
+            'per_page'     => $perPage,
+            'last_page'    => (int)ceil($total / $perPage),
+        ];
+    }
+
+    public function getDailySummary(?string $date = null, ?int $locationId = null): array
+    {
+        $targetDate = $date ?: date('Y-m-d');
+        $where = ["DATE(pt.created_at) = :date"];
+        $params = [':date' => $targetDate];
+
+        if ($locationId) {
+            $where[] = 'pt.location_id = :lid';
+            $params[':lid'] = $locationId;
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        $stmt = $this->db->prepare("
+            SELECT 
+                COUNT(*) as transaction_count,
+                COALESCE(SUM(o.total_amount), 0) as total_sales,
+                COALESCE(SUM(CASE WHEN pt.payment_method = 'cash' THEN o.total_amount ELSE 0 END), 0) as cash_sales,
+                COALESCE(SUM(CASE WHEN pt.payment_method = 'card' THEN o.total_amount ELSE 0 END), 0) as card_sales,
+                COALESCE(SUM(CASE WHEN pt.payment_method = 'bank_transfer' THEN o.total_amount ELSE 0 END), 0) as transfer_sales,
+                COALESCE(SUM(o.discount_amount), 0) as total_discounts
+            FROM pos_transactions pt
+            JOIN orders o ON pt.order_id = o.id
+            WHERE {$whereClause}
+        ");
+        $stmt->execute($params);
+        $summary = $stmt->fetch();
+
+        return [
+            'date'              => $targetDate,
+            'location_id'       => $locationId,
+            'transaction_count' => (int)$summary['transaction_count'],
+            'total_sales'       => (float)$summary['total_sales'],
+            'cash_sales'        => (float)$summary['cash_sales'],
+            'card_sales'        => (float)$summary['card_sales'],
+            'transfer_sales'    => (float)$summary['transfer_sales'],
+            'total_discounts'   => (float)$summary['total_discounts'],
+            'currency'          => 'LKR',
+        ];
+    }
 }

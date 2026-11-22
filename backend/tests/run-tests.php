@@ -40,6 +40,7 @@ use CeylonCues\Core\Database;
 use CeylonCues\Core\Env;
 use CeylonCues\Services\Auth\AuthService;
 use CeylonCues\Services\Auth\RbacService;
+use CeylonCues\Services\Customers\CustomerService;
 use CeylonCues\Services\Delivery\DeliveryService;
 use CeylonCues\Services\Inventory\InventoryService;
 use CeylonCues\Services\Inventory\StockAllocationService;
@@ -49,17 +50,21 @@ use CeylonCues\Services\Notifications\NotificationQueueService;
 use CeylonCues\Services\Notifications\WhatsAppService;
 use CeylonCues\Services\Orders\CartService;
 use CeylonCues\Services\Orders\OrderService;
+use CeylonCues\Services\Orders\ReturnService;
 use CeylonCues\Services\Payments\PaymentService;
 use CeylonCues\Services\Pos\PosService;
 use CeylonCues\Services\Products\ProductService;
+use CeylonCues\Services\Purchasing\PurchaseOrderService;
 use CeylonCues\Services\Reports\ExpenseService;
 use CeylonCues\Services\Reports\ReportService;
 use CeylonCues\Services\Settings\BackupService;
 use CeylonCues\Services\Settings\SettingService;
+use CeylonCues\Services\Suppliers\SupplierService;
 use CeylonCues\Services\Support\SupportService;
 use CeylonCues\Services\Wholesale\WholesaleService;
 
 Env::load(dirname(__DIR__) . '/.env');
+date_default_timezone_set(Env::get('APP_TIMEZONE', 'Asia/Colombo'));
 
 $db = Database::getInstance()->getConnection();
 
@@ -101,7 +106,7 @@ class TestRunner
 
 $t = new TestRunner();
 echo "\n========================================================\n";
-echo "       CEYLON CUES — 22 MASTER SCENARIOS TEST SUITE      \n";
+echo "       CEYLON CUES — 29 MASTER SCENARIOS TEST SUITE      \n";
 echo "========================================================\n\n";
 
 $prodService = new ProductService();
@@ -118,6 +123,11 @@ $notifService = new NotificationQueueService();
 $rbacService = new RbacService();
 $backupService = new BackupService();
 $authService = new AuthService();
+$supplService = new SupplierService();
+$poService = new PurchaseOrderService();
+$custService = new CustomerService();
+$retService = new ReturnService();
+$repService = new ReportService();
 
 // Resolve Locations
 $warehouseId = (int)$db->query("SELECT id FROM inventory_locations WHERE type = 'warehouse' LIMIT 1")->fetchColumn();
@@ -295,8 +305,9 @@ $reply = $suppService->replyToTicket((int)$ticket['id'], 'We expect fresh shipme
 $t->assert('Scenario 17: Create a customer support ticket', count($reply['messages']) >= 2, "Ticket Ref: {$ticket['reference_number']}, Messages count: " . count($reply['messages']));
 
 // ── Scenario 18: Trigger a WhatsApp notification ────────────────────────────
+$testOrderRef = 'CC-ORD-TEST-' . time();
 $queueId = $notifService->queueEvent('order.created', [
-    'order_ref'       => 'CC-ORD-TEST-000099',
+    'order_ref'       => $testOrderRef,
     'customer_name'   => 'VIP Customer',
     'customer_phone'  => '+94770000000',
     'item_count'      => 2,
@@ -359,6 +370,130 @@ $t->assert(
     'Scenario 22: Test security against web vulnerabilities',
     $usersTableIntact && $passwordVerify && $idorBlocked,
     "SQLi sanitized: OK, Argon2id verify: OK, IDOR guard: OK"
+);
+
+// ── Scenario 23: Suppliers Management ───────────────────────────────────────
+$supplier = $supplService->createSupplier([
+    'company_name'   => 'Kamui Global Japan',
+    'contact_person' => 'Hiroshi Tanaka',
+    'email'          => 'hiroshi-' . time() . '@kamui.example',
+    'phone'          => '+8135550199',
+    'country'        => 'Japan',
+]);
+$suppId = (int)$supplier['id'];
+$foundSupplier = $supplService->getSupplier($suppId);
+$t->assert(
+    'Scenario 23: Suppliers Management',
+    $foundSupplier && $foundSupplier['company_name'] === 'Kamui Global Japan',
+    "Supplier ID: {$suppId}, Company: {$foundSupplier['company_name']}"
+);
+
+// ── Scenario 24: Purchasing and Goods Receiving ─────────────────────────────
+$po = $poService->createPurchaseOrder([
+    'supplier_id'   => $suppId,
+    'expected_date' => date('Y-m-d', strtotime('+7 days')),
+    'items'         => [
+        [
+            'product_id' => $productId,
+            'quantity'   => 15,
+            'unit_cost'  => 25000.00,
+        ],
+    ],
+], $ownerId);
+$poId = (int)$po['id'];
+$poService->updatePurchaseOrderStatus($poId, 'confirmed', 'Approved by owner', $ownerId);
+
+$preGrnWhStock = (int)$db->query("SELECT quantity FROM inventory_stock WHERE product_id = {$productId} AND location_id = {$warehouseId}")->fetchColumn();
+
+$receipt = $poService->receiveGoods($poId, $warehouseId, [
+    [
+        'purchase_order_item_id' => $po['items'][0]['id'],
+        'quantity_received'      => 15,
+    ],
+], $ownerId, 'Initial PO shipment received in good condition');
+
+$postGrnWhStock = (int)$db->query("SELECT quantity FROM inventory_stock WHERE product_id = {$productId} AND location_id = {$warehouseId}")->fetchColumn();
+
+$t->assert(
+    'Scenario 24: Purchasing and Goods Receiving',
+    str_starts_with($receipt['receipt_reference'], 'CC-GRN-') && $receipt['status'] === 'received' && $postGrnWhStock === ($preGrnWhStock + 15),
+    "GRN: {$receipt['receipt_reference']}, WH Stock: {$preGrnWhStock} -> {$postGrnWhStock} (+15 units)"
+);
+
+// ── Scenario 25: Customer Management & Address Book ─────────────────────────
+$customerList = $custService->listCustomers([], 1, 5);
+$firstCustId = !empty($customerList['data']) ? (int)$customerList['data'][0]['id'] : $ownerId;
+$addrList = $custService->addAddress($firstCustId, [
+    'recipient_name' => 'John Customer',
+    'phone'          => '0771234567',
+    'address_line1'  => '45 Queen Street',
+    'city'           => 'Colombo',
+    'district'       => 'Colombo',
+    'postal_code'    => '00100',
+    'is_default'     => 1,
+]);
+$custProfile = $custService->getCustomer($firstCustId);
+$t->assert(
+    'Scenario 25: Customer Management & Address Book',
+    !empty($custProfile['addresses']) && isset($custProfile['metrics']['lifetime_spent']),
+    "Customer ID: {$firstCustId}, Addresses count: " . count($custProfile['addresses'])
+);
+
+// ── Scenario 26: Return Request Lifecycle & Stock Restoration ───────────────
+$retRequest = $retService->createReturn($orderId, [
+    [
+        'order_item_id'   => $order['items'][0]['id'],
+        'quantity'        => 1,
+        'condition_notes' => 'Unopened in original box',
+    ],
+], 'Customer requested exchange for different weight', $ownerId);
+$retId = (int)$retRequest['id'];
+$approvedRet = $retService->approveReturn($retId, $ownerId);
+
+$preReturnStock = (int)$db->query("SELECT quantity FROM inventory_stock WHERE product_id = {$productId} AND location_id = {$warehouseId}")->fetchColumn();
+$receivedRet = $retService->receiveReturnedGoods($retId, $warehouseId, $ownerId, true, 'Item inspected and restocked');
+$postReturnStock = (int)$db->query("SELECT quantity FROM inventory_stock WHERE product_id = {$productId} AND location_id = {$warehouseId}")->fetchColumn();
+
+$t->assert(
+    'Scenario 26: Return Request Lifecycle & Stock Restoration',
+    $receivedRet['status'] === 'received' && $postReturnStock === ($preReturnStock + 1),
+    "Return Ref: {$receivedRet['reference_number']}, Restocked in WH: {$preReturnStock} -> {$postReturnStock} (+1 unit)"
+);
+
+// ── Scenario 27: Physical Stock Count & Reconciliation ──────────────────────
+$stockCount = $invService->createStockCount($shopId, $ownerId, 'Monthly physical shop count');
+$countId = (int)$stockCount['id'];
+
+$currentShopQty = (int)$db->query("SELECT quantity FROM inventory_stock WHERE product_id = {$productId} AND location_id = {$shopId}")->fetchColumn();
+$countedQty = $currentShopQty + 1;
+
+$invService->recordCountItem($countId, $productId, $countedQty, null, 'Found extra unit during physical count');
+$reconciledCount = $invService->reconcileStockCount($countId, $ownerId);
+$finalShopQty = (int)$db->query("SELECT quantity FROM inventory_stock WHERE product_id = {$productId} AND location_id = {$shopId}")->fetchColumn();
+
+$t->assert(
+    'Scenario 27: Physical Stock Count & Reconciliation',
+    $reconciledCount['status'] === 'completed' && $finalShopQty === $countedQty,
+    "Count Ref: {$reconciledCount['reference_number']}, Shop Stock Reconciled: {$currentShopQty} -> {$finalShopQty}"
+);
+
+// ── Scenario 28: Reporting & Financial Intelligence Suite ───────────────────
+$salesRep = $repService->getSalesReport(date('Y-m-01'), date('Y-m-d'));
+$invRep = $repService->getInventoryReport();
+$prodRep = $repService->getProductSalesReport(date('Y-m-01'), date('Y-m-d'));
+$t->assert(
+    'Scenario 28: Reporting & Financial Intelligence Suite',
+    isset($salesRep['total_revenue']) && !empty($invRep['locations']) && is_array($prodRep['products']),
+    "Revenue: LKR " . number_format($salesRep['total_revenue'], 2) . ", Locations audited: " . count($invRep['locations'])
+);
+
+// ── Scenario 29: POS Session & Register Audit ───────────────────────────────
+$dailySummary = $posService->getDailySummary(date('Y-m-d'), $shopId);
+$txList = $posService->listTransactions([], 1, 5);
+$t->assert(
+    'Scenario 29: POS Session & Daily Sales Audit',
+    $dailySummary['transaction_count'] >= 1 && !empty($txList['data']),
+    "Date: {$dailySummary['date']}, POS Transactions: {$dailySummary['transaction_count']}, Sales: LKR " . number_format($dailySummary['total_sales'], 2)
 );
 
 // Print Final Summary

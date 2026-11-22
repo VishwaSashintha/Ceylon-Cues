@@ -41,4 +41,57 @@ final class DeliveryController
         $calc = $this->delivery->calculateDelivery($district, $subtotal, $method);
         Response::json($calc, 'Delivery calculated');
     }
+
+    public function createZone(Request $request): void
+    {
+        $data = $request->getBody();
+        $v = Validator::validate($data, [
+            'name'            => 'required',
+            'delivery_charge' => 'required|numeric',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $zone = $this->delivery->createZone($data);
+            Response::created($zone, 'Delivery zone created');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function updateZone(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $data = $request->getBody();
+
+        try {
+            $zone = $this->delivery->updateZone($id, $data);
+            Response::json($zone, 'Delivery zone updated');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function destroyZone(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $this->delivery->deleteZone($id);
+        Response::json(['id' => $id], 'Delivery zone deactivated');
+    }
+
+    public function updateFulfillment(Request $request): void
+    {
+        $orderId = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        try {
+            $order = $this->delivery->updateOrderFulfillment($orderId, $data, (int)$user['id']);
+            Response::json($order, 'Order fulfillment tracking updated');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }

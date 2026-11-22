@@ -189,4 +189,83 @@ final class InventoryController
         $movements = $this->inventory->getMovements($filters);
         Response::json($movements, 'Stock movement audit trail retrieved');
     }
+
+    public function counts(Request $request): void
+    {
+        $locId = $request->getParam('location_id') ? (int)$request->getParam('location_id') : null;
+        $counts = $this->inventory->listStockCounts($locId);
+        Response::json($counts, 'Stock counts retrieved');
+    }
+
+    public function showCount(Request $request): void
+    {
+        $id = $request->getRouteParam('id');
+        $count = $this->inventory->getStockCount(is_numeric($id) ? (int)$id : $id);
+        if (!$count) {
+            Response::notFound('Stock count record not found');
+        }
+        Response::json($count, 'Stock count details retrieved');
+    }
+
+    public function createCount(Request $request): void
+    {
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, ['location_id' => 'required|integer']);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $count = $this->inventory->createStockCount(
+                (int)$data['location_id'],
+                (int)$user['id'],
+                $data['notes'] ?? null
+            );
+            Response::created($count, 'Physical stock count initiated');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function recordCountItem(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, [
+            'product_id'       => 'required|integer',
+            'counted_quantity' => 'required|integer',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $count = $this->inventory->recordCountItem(
+                $id,
+                (int)$data['product_id'],
+                (int)$data['counted_quantity'],
+                !empty($data['variant_id']) ? (int)$data['variant_id'] : null,
+                $data['notes'] ?? null
+            );
+            Response::json($count, 'Count item recorded');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function reconcileCount(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+
+        try {
+            $count = $this->inventory->reconcileStockCount($id, (int)$user['id']);
+            Response::json($count, 'Stock count reconciled and physical inventories synchronized');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }

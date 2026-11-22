@@ -237,4 +237,174 @@ final class InventoryService
         $stmt->execute();
         return $stmt->fetchAll();
     }
+
+    public function createStockCount(int $locationId, int $userId, ?string $notes = null): array
+    {
+        $year = date('Y');
+        $count = (int)$this->db->query("SELECT COUNT(*) FROM stock_counts WHERE reference_number LIKE 'CC-SC-{$year}-%'")->fetchColumn() + 1;
+        $ref = sprintf('CC-SC-%s-%04d', $year, $count);
+        $uuid = \CeylonCues\Core\Uuid::v4();
+
+        $stmt = $this->db->prepare("
+            INSERT INTO stock_counts (uuid, reference_number, location_id, status, counted_by, notes)
+            VALUES (:uuid, :ref, :loc_id, 'in_progress', :user_id, :notes)
+        ");
+        $stmt->execute([
+            ':uuid'    => $uuid,
+            ':ref'     => $ref,
+            ':loc_id'  => $locationId,
+            ':user_id' => $userId,
+            ':notes'   => $notes,
+        ]);
+
+        return $this->getStockCount((int)$this->db->lastInsertId());
+    }
+
+    public function listStockCounts(?int $locationId = null): array
+    {
+        $where = $locationId ? "WHERE sc.location_id = {$locationId}" : "";
+        $stmt = $this->db->query("
+            SELECT sc.*, l.name as location_name, u.first_name as counted_by_name
+            FROM stock_counts sc
+            JOIN inventory_locations l ON sc.location_id = l.id
+            JOIN users u ON sc.counted_by = u.id
+            {$where}
+            ORDER BY sc.created_at DESC
+        ");
+        return $stmt->fetchAll();
+    }
+
+    public function getStockCount(int|string $identifier): ?array
+    {
+        $column = is_numeric($identifier) ? 'sc.id' : 'sc.reference_number';
+        $stmt = $this->db->prepare("
+            SELECT sc.*, l.name as location_name, u.first_name as counted_by_name
+            FROM stock_counts sc
+            JOIN inventory_locations l ON sc.location_id = l.id
+            JOIN users u ON sc.counted_by = u.id
+            WHERE {$column} = :id
+            LIMIT 1
+        ");
+        $stmt->execute([':id' => $identifier]);
+        $count = $stmt->fetch();
+        if (!$count) {
+            return null;
+        }
+
+        $stmtItems = $this->db->prepare("
+            SELECT sci.*, p.name as product_name, p.sku
+            FROM stock_count_items sci
+            JOIN products p ON sci.product_id = p.id
+            WHERE sci.count_id = :cid
+        ");
+        $stmtItems->execute([':cid' => $count['id']]);
+        $count['items'] = $stmtItems->fetchAll();
+
+        return $count;
+    }
+
+    public function recordCountItem(int $countId, int $productId, int $countedQuantity, ?int $variantId = null, ?string $notes = null): array
+    {
+        $count = $this->getStockCount($countId);
+        if (!$count || $count['status'] !== 'in_progress') {
+            throw new RuntimeException('Active in-progress stock count required');
+        }
+
+        $stmtSys = $this->db->prepare("
+            SELECT COALESCE(quantity, 0) FROM inventory_stock 
+            WHERE product_id = :pid AND location_id = :lid AND (variant_id = :vid OR (variant_id IS NULL AND :vid2 IS NULL))
+        ");
+        $stmtSys->execute([':pid' => $productId, ':lid' => $count['location_id'], ':vid' => $variantId, ':vid2' => $variantId]);
+        $sysQty = (int)$stmtSys->fetchColumn();
+
+        $variance = $countedQuantity - $sysQty;
+
+        $stmtItem = $this->db->prepare("
+            INSERT INTO stock_count_items (
+                count_id, product_id, variant_id, system_quantity, counted_quantity, variance, notes
+            ) VALUES (
+                :cid, :pid, :vid, :sys_qty, :count_qty, :variance, :notes
+            )
+        ");
+        $stmtItem->execute([
+            ':cid'       => $countId,
+            ':pid'       => $productId,
+            ':vid'       => $variantId,
+            ':sys_qty'   => $sysQty,
+            ':count_qty' => $countedQuantity,
+            ':variance'  => $variance,
+            ':notes'     => $notes,
+        ]);
+
+        return $this->getStockCount($countId);
+    }
+
+    public function reconcileStockCount(int $countId, int $reconciledBy): array
+    {
+        $count = $this->getStockCount($countId);
+        if (!$count || $count['status'] !== 'in_progress') {
+            throw new RuntimeException('Stock count not found or already reconciled');
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $stmtMovement = $this->db->prepare("
+                INSERT INTO stock_movements (
+                    product_id, variant_id, location_id, movement_type,
+                    quantity, quantity_before, quantity_after, reference_type, reference_id, notes, created_by
+                ) VALUES (
+                    :pid, :vid, :lid, 'count_correction',
+                    :qty, :before, :after, 'stock_count', :ref_id, :notes, :by
+                )
+            ");
+
+            foreach ($count['items'] as $item) {
+                if ((int)$item['variance'] !== 0) {
+                    $pid = (int)$item['product_id'];
+                    $vid = !empty($item['variant_id']) ? (int)$item['variant_id'] : null;
+                    $sysQty = (int)$item['system_quantity'];
+                    $countedQty = (int)$item['counted_quantity'];
+
+                    $stmtCheck = $this->db->prepare("
+                        SELECT id FROM inventory_stock
+                        WHERE product_id = :pid AND location_id = :lid AND (variant_id = :vid OR (variant_id IS NULL AND :vid2 IS NULL))
+                        FOR UPDATE
+                    ");
+                    $stmtCheck->execute([':pid' => $pid, ':lid' => $count['location_id'], ':vid' => $vid, ':vid2' => $vid]);
+                    $stockRow = $stmtCheck->fetch();
+
+                    if ($stockRow) {
+                        $this->db->prepare("UPDATE inventory_stock SET quantity = :qty, updated_at = NOW() WHERE id = :id")
+                            ->execute([':qty' => $countedQty, ':id' => $stockRow['id']]);
+                    } else {
+                        $this->db->prepare("
+                            INSERT INTO inventory_stock (product_id, variant_id, location_id, quantity)
+                            VALUES (:pid, :vid, :lid, :qty)
+                        ")->execute([':pid' => $pid, ':vid' => $vid, ':lid' => $count['location_id'], ':qty' => $countedQty]);
+                    }
+
+                    $stmtMovement->execute([
+                        ':pid'    => $pid,
+                        ':vid'    => $vid,
+                        ':lid'    => $count['location_id'],
+                        ':qty'    => abs($countedQty - $sysQty),
+                        ':before' => $sysQty,
+                        ':after'  => $countedQty,
+                        ':ref_id' => $countId,
+                        ':notes'  => "Stock count {$count['reference_number']} correction: {$sysQty} -> {$countedQty}",
+                        ':by'     => $reconciledBy,
+                    ]);
+                }
+            }
+
+            $this->db->prepare("UPDATE stock_counts SET status = 'completed', completed_at = NOW(), updated_at = NOW() WHERE id = :id")
+                ->execute([':id' => $countId]);
+
+            $this->db->commit();
+            return $this->getStockCount($countId);
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
 }
