@@ -191,4 +191,143 @@ final class AuthController
         $token = CsrfMiddleware::generateToken($userId);
         Response::json(['csrf_token' => $token], 'CSRF token generated');
     }
+
+    /**
+     * POST /api/v1/auth/logout-all
+     */
+    public function logoutAll(Request $request): void
+    {
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        $count = $this->auth->logoutAll((int)$user['id']);
+        Response::json(['sessions_invalidated' => $count], 'All sessions terminated');
+    }
+
+    /**
+     * POST /api/v1/auth/2fa/setup
+     */
+    public function setup2fa(Request $request): void
+    {
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        try {
+            $result = $this->auth->setup2fa((int)$user['id']);
+            Response::json($result, '2FA setup initiated. Scan the QR code and confirm with enable endpoint.');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * POST /api/v1/auth/2fa/enable
+     */
+    public function enable2fa(Request $request): void
+    {
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        $data = $request->getBody();
+        $v = Validator::validate($data, ['code' => 'required|string']);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $this->auth->enable2fa((int)$user['id'], $data['code']);
+            Response::json(null, '2FA enabled successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * POST /api/v1/auth/2fa/verify
+     */
+    public function verify2faLogin(Request $request): void
+    {
+        $data = $request->getBody();
+        $v = Validator::validate($data, [
+            'temp_token' => 'required|string',
+            'code'       => 'required|string',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $result = $this->auth->loginWith2fa($data['temp_token'], $data['code']);
+            Response::json($result, 'Login successful');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 401);
+        }
+    }
+
+    /**
+     * POST /api/v1/auth/2fa/disable
+     */
+    public function disable2fa(Request $request): void
+    {
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        $data = $request->getBody();
+        $v = Validator::validate($data, ['code' => 'required|string']);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $this->auth->disable2fa((int)$user['id'], $data['code']);
+            Response::json(null, '2FA disabled successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * POST /api/v1/auth/verify-email
+     */
+    public function verifyEmail(Request $request): void
+    {
+        $data = $request->getBody();
+        $v = Validator::validate($data, ['token' => 'required|string']);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $this->auth->verifyEmail($data['token']);
+            Response::json(null, 'Email verified successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * POST /api/v1/auth/resend-verification
+     */
+    public function resendVerification(Request $request): void
+    {
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        try {
+            $this->auth->sendEmailVerification((int)$user['id']);
+            Response::json(null, 'Verification email sent');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }

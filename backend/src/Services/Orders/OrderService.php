@@ -8,6 +8,7 @@ use CeylonCues\Core\Database;
 use CeylonCues\Core\Uuid;
 use CeylonCues\Services\Inventory\InventoryService;
 use CeylonCues\Services\Inventory\StockAllocationService;
+use CeylonCues\Services\Settings\SettingService;
 use PDO;
 use RuntimeException;
 
@@ -463,6 +464,81 @@ final class OrderService
             'total' => $count,
             'page' => $page,
             'per_page' => $perPage,
+        ];
+    }
+
+    public function generateTaxInvoiceNumber(int $orderId): string
+    {
+        $this->db->beginTransaction();
+        try {
+            $year = date('Y');
+            $prefix = "CC-TAX-INV-{$year}-";
+
+            $stmt = $this->db->prepare("
+                SELECT MAX(CAST(SUBSTRING_INDEX(tax_invoice_number, '-', -1) AS UNSIGNED))
+                FROM orders
+                WHERE tax_invoice_number LIKE :prefix
+                FOR UPDATE
+            ");
+            $stmt->execute([':prefix' => $prefix . '%']);
+            $maxSeq = (int)$stmt->fetchColumn();
+            $seq = $maxSeq + 1;
+
+            $invoiceNumber = $prefix . sprintf('%05d', $seq);
+
+            $this->db->prepare("UPDATE orders SET tax_invoice_number = :inv, updated_at = NOW() WHERE id = :id")
+                     ->execute([':inv' => $invoiceNumber, ':id' => $orderId]);
+
+            $this->db->commit();
+            return $invoiceNumber;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public function getTaxInvoiceData(int $orderId): array
+    {
+        $order = $this->getOrder($orderId);
+        if (!$order) {
+            throw new RuntimeException("Order #{$orderId} not found.");
+        }
+
+        if (empty($order['tax_invoice_number'])) {
+            $order['tax_invoice_number'] = $this->generateTaxInvoiceNumber($orderId);
+            $order = $this->getOrder($orderId);
+        }
+
+        $customer = null;
+        if (!empty($order['user_id'])) {
+            $stmt = $this->db->prepare("
+                SELECT id, uuid, email, phone, first_name, last_name FROM users WHERE id = :uid LIMIT 1
+            ");
+            $stmt->execute([':uid' => (int)$order['user_id']]);
+            $customer = $stmt->fetch() ?: null;
+        }
+
+        $settings = new SettingService();
+        $businessName = $settings->get('business_name', 'Ceylon Cues');
+        $businessAddress = $settings->get('business_address', '');
+        $businessPhone = $settings->get('business_phone', '');
+        $vatNumber = $settings->get('vat_number', '');
+
+        return [
+            'order'            => $order,
+            'tax_invoice_number' => $order['tax_invoice_number'],
+            'vat_percentage'   => (float)($order['vat_percentage'] ?? 0),
+            'vat_amount'       => (float)($order['vat_amount'] ?? 0),
+            'items'            => $order['items'],
+            'customer'         => $customer,
+            'business'         => [
+                'name'        => $businessName,
+                'address'     => $businessAddress,
+                'phone'       => $businessPhone,
+                'vat_number'  => $vatNumber,
+            ],
         ];
     }
 

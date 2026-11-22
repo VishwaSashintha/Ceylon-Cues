@@ -10,9 +10,6 @@ use CeylonCues\Core\Validator;
 use CeylonCues\Services\Pos\PosService;
 use Exception;
 
-/**
- * Shop POS Controller
- */
 final class PosController
 {
     private PosService $pos;
@@ -22,9 +19,6 @@ final class PosController
         $this->pos = new PosService();
     }
 
-    /**
-     * POST /api/v1/pos/sessions/open
-     */
     public function openSession(Request $request): void
     {
         $user = $request->getUser();
@@ -51,12 +45,9 @@ final class PosController
         }
     }
 
-    /**
-     * POST /api/v1/pos/sessions/{id}/close
-     */
     public function closeSession(Request $request): void
     {
-        $id = (int)$request->getRouteParam('id');
+        $id   = (int)$request->getRouteParam('id');
         $data = $request->getBody();
 
         $v = Validator::validate($data, ['closing_balance' => 'required|numeric']);
@@ -72,9 +63,6 @@ final class PosController
         }
     }
 
-    /**
-     * POST /api/v1/pos/sales
-     */
     public function processSale(Request $request): void
     {
         $user = $request->getUser();
@@ -99,7 +87,8 @@ final class PosController
                 $data['card_reference'] ?? null,
                 $data['customer_name'] ?? 'Walk-in Customer',
                 $data['customer_phone'] ?? '0000000000',
-                (float)($data['discount_amount'] ?? 0.00)
+                (float)($data['discount_amount'] ?? 0.00),
+                $data
             );
             Response::json($sale, 'POS transaction completed successfully');
         } catch (Exception $e) {
@@ -109,7 +98,7 @@ final class PosController
 
     public function listSessions(Request $request): void
     {
-        $limit = min(100, max(1, (int)$request->getParam('limit', 50)));
+        $limit   = min(100, max(1, (int)$request->getParam('limit', 50)));
         $filters = [
             'cashier_id'  => $request->getParam('cashier_id'),
             'location_id' => $request->getParam('location_id'),
@@ -120,7 +109,7 @@ final class PosController
 
     public function showSession(Request $request): void
     {
-        $id = (int)$request->getRouteParam('id');
+        $id      = (int)$request->getRouteParam('id');
         $session = $this->pos->getSession($id);
         if (!$session) {
             Response::notFound('POS session not found');
@@ -130,7 +119,7 @@ final class PosController
 
     public function listTransactions(Request $request): void
     {
-        $page = max(1, (int)$request->getParam('page', 1));
+        $page    = max(1, (int)$request->getParam('page', 1));
         $perPage = min(100, max(1, (int)$request->getParam('per_page', 20)));
         $filters = [
             'session_id'     => $request->getParam('session_id'),
@@ -153,9 +142,79 @@ final class PosController
 
     public function dailySummary(Request $request): void
     {
-        $date = $request->getParam('date');
+        $date  = $request->getParam('date');
         $locId = $request->getParam('location_id') ? (int)$request->getParam('location_id') : null;
         $summary = $this->pos->getDailySummary($date, $locId);
         Response::json($summary, 'POS daily sales summary retrieved');
+    }
+
+    public function syncOffline(Request $request): void
+    {
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, ['sales' => 'required|array']);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $result = $this->pos->syncOfflineSales($data['sales'], (int)$user['id']);
+            Response::json($result, 'Offline sales sync completed');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function verifyPin(Request $request): void
+    {
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, [
+            'pin'        => 'required|string',
+            'session_id' => 'required|integer',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $ok = $this->pos->verifyManagerPin($data['pin'], (int)$data['session_id']);
+            Response::json(['authorised' => $ok], $ok ? 'Manager PIN verified' : 'Invalid PIN');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function cashMovement(Request $request): void
+    {
+        $id   = (int)$request->getRouteParam('id');
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, [
+            'type'   => 'required|in:in,out',
+            'amount' => 'required|numeric',
+            'reason' => 'required|string',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $this->pos->recordCashMovement($id, $data['type'], (float)$data['amount'], $data['reason']);
+            Response::json(['session_id' => $id], 'Cash movement recorded');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function showFloat(Request $request, int $id): void
+    {
+        try {
+            $float = $this->pos->getCashFloat($id);
+            Response::json($float, 'Cash float details retrieved');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 404);
+        }
     }
 }

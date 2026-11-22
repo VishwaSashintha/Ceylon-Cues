@@ -85,4 +85,54 @@ final class CustomerController
             Response::error($e->getMessage(), 400);
         }
     }
+
+    /**
+     * GET /api/v1/customers/{id}/export-data (PDPA Data Export)
+     */
+    public function exportData(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        $isSelf = (int)$user['id'] === $id;
+        $isStaff = in_array($user['role'] ?? '', ['owner', 'shop_manager'], true);
+        if (!$isSelf && !$isStaff) {
+            Response::forbidden();
+        }
+
+        try {
+            $data = $this->customerService->exportCustomerData($id);
+            Response::json($data, 'Customer PDPA data exported');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * POST /api/v1/customers/{id}/erase-data (PDPA Right to be Forgotten)
+     */
+    public function eraseData(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        $isSelf = (int)$user['id'] === $id;
+        $isOwner = !empty($user['is_owner']) || ($user['role'] ?? '') === 'owner';
+        if (!$isSelf && !$isOwner) {
+            Response::forbidden();
+        }
+
+        try {
+            $this->customerService->eraseCustomerData($id, (int)$user['id']);
+            Response::json(null, 'Customer PII data anonymized and erased successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }

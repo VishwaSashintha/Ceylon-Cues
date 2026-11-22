@@ -5,19 +5,18 @@ declare(strict_types=1);
 /**
  * Ceylon Cues — Secure Owner Bootstrap Script
  *
- * MUST ONLY be run from the CLI.
- * Strictly enforces single-owner architecture.
- * Refuses if an owner already exists.
- * Never uses hardcoded passwords.
+ * Enforces single-owner architecture.
+ * Generates a high-entropy random password if none is provided via CLI.
+ * Never stores or displays default passwords in code or documentation.
  *
  * Usage:
  *   php database/bootstrap.php
- *   php database/bootstrap.php --email=owner@ceyloncues.lk --first_name=Vishwa --last_name=Owner --phone=+94770000000 --password=Secret123!
+ *   php database/bootstrap.php --email=owner@ceyloncues.lk --first_name=Owner --last_name=Admin --password=CustomStrongPass123!
  */
 
 if (php_sapi_name() !== 'cli') {
     http_response_code(403);
-    echo "Forbidden: This script can only be run from the command line.\n";
+    echo "Forbidden: CLI execution only.\n";
     exit(1);
 }
 
@@ -32,143 +31,96 @@ Env::load(dirname(__DIR__) . '/.env');
 $db = Database::getInstance()->getConnection();
 
 echo "========================================================\n";
-echo "       CEYLON CUES — SUPER ADMINISTRATOR BOOTSTRAP       \n";
-echo "            Single Business Owner Provisioning          \n";
+echo "       CEYLON CUES — SUPER ADMINISTRATOR PROVISIONING    \n";
 echo "========================================================\n\n";
 
-// 1. Verify single owner requirement: Check if owner already exists
+$options = getopt('', ['email:', 'first_name:', 'last_name:', 'phone:', 'password:', 'force']);
+
 $stmt = $db->query("SELECT id, email, first_name, last_name, created_at FROM users WHERE is_owner = 1 OR role = 'owner' LIMIT 1");
 $existingOwner = $stmt->fetch();
 
+$isUpdate = false;
 if ($existingOwner) {
-    echo "[SECURITY ERROR] A Super Administrator / Business Owner already exists!\n";
-    echo "Owner Email: " . $existingOwner['email'] . "\n";
-    echo "Registered At: " . $existingOwner['created_at'] . "\n\n";
-    echo "For security, only ONE business owner is permitted in Ceylon Cues.\n";
-    echo "Bootstrap operation aborted.\n";
-    exit(1);
-}
-
-// 2. Parse CLI options or prompt interactively
-$options = getopt('', ['email:', 'first_name:', 'last_name:', 'phone:', 'password:']);
-
-function promptInput(string $prompt, bool $isSecret = false): string {
-    echo $prompt;
-    if ($isSecret && strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') {
-        system('stty -echo');
-        $input = trim((string)fgets(STDIN));
-        system('stty echo');
-        echo "\n";
-    } else {
-        $input = trim((string)fgets(STDIN));
+    if (!isset($options['force'])) {
+        echo "[SECURITY NOTICE] Super Administrator account exists: {$existingOwner['email']}\n";
+        echo "To re-generate owner credentials, re-run with: php database/bootstrap.php --force\n";
+        exit(0);
     }
-    return $input;
+    $isUpdate = true;
+    echo "[INFO] Updating existing owner credentials...\n";
 }
 
-$email = $options['email'] ?? promptInput("Enter Owner Email Address: ");
-$firstName = $options['first_name'] ?? promptInput("Enter Owner First Name: ");
-$lastName = $options['last_name'] ?? promptInput("Enter Owner Last Name: ");
-$phone = $options['phone'] ?? promptInput("Enter Owner Phone (e.g. +94771234567): ");
+$email = $options['email'] ?? ($existingOwner['email'] ?? 'owner@ceyloncues.lk');
+$firstName = $options['first_name'] ?? ($existingOwner['first_name'] ?? 'Super');
+$lastName = $options['last_name'] ?? ($existingOwner['last_name'] ?? 'Administrator');
+$phone = $options['phone'] ?? '+94770000000';
 
-if (isset($options['password'])) {
+$passwordGenerated = false;
+if (!empty($options['password'])) {
     $password = $options['password'];
 } else {
-    $password = promptInput("Enter Secure Password (min 8 chars): ", true);
-    $confirmPassword = promptInput("Confirm Secure Password: ", true);
-    if ($password !== $confirmPassword) {
-        echo "[ERROR] Passwords do not match. Bootstrap cancelled.\n";
-        exit(1);
-    }
+    // Generate secure 18-character password: 8 bytes hex + uppercase + special chars
+    $raw = bin2hex(random_bytes(8));
+    $password = ucfirst($raw) . '!9xZ';
+    $passwordGenerated = true;
 }
 
-// 3. Validation
-$errors = [];
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    $errors[] = "Invalid email format.";
-}
-if (empty($firstName)) {
-    $errors[] = "First name is required.";
-}
-if (empty($lastName)) {
-    $errors[] = "Last name is required.";
-}
-if (empty($phone)) {
-    $errors[] = "Phone number is required.";
-}
-if (strlen($password) < 8) {
-    $errors[] = "Password must be at least 8 characters long.";
-}
-
-if (!empty($errors)) {
-    echo "\n[VALIDATION FAILED]:\n";
-    foreach ($errors as $err) {
-        echo " - {$err}\n";
-    }
+if (strlen($password) < 12) {
+    echo "[ERROR] Password must be at least 12 characters long.\n";
     exit(1);
 }
 
-// 4. Hash password with PASSWORD_ARGON2ID
 $passwordHash = password_hash($password, PASSWORD_ARGON2ID, [
     'memory_cost' => 65536,
     'time_cost'   => 4,
     'threads'     => 1,
 ]);
 
-$uuid = Uuid::v4();
-
-// 5. Insert Owner Account
-$insertStmt = $db->prepare("
-    INSERT INTO users (
-        uuid, email, phone, password_hash, first_name, last_name, 
-        role, is_active, is_owner, email_verified_at, created_at, updated_at
-    ) VALUES (
-        :uuid, :email, :phone, :password_hash, :first_name, :last_name, 
-        'owner', 1, 1, NOW(), NOW(), NOW()
-    )
-");
-
-$success = $insertStmt->execute([
-    ':uuid'          => $uuid,
-    ':email'         => strtolower(trim($email)),
-    ':phone'         => trim($phone),
-    ':password_hash' => $passwordHash,
-    ':first_name'    => trim($firstName),
-    ':last_name'     => trim($lastName),
-]);
-
-if ($success) {
-    $ownerId = (int)$db->lastInsertId();
-    
-    // Update owner_whatsapp business setting
-    $db->prepare("UPDATE business_settings SET setting_value = :phone WHERE setting_key = 'owner_whatsapp'")
-       ->execute([':phone' => trim($phone)]);
-
-    // Update promotional discounts created_by if they were seeded
-    $db->prepare("UPDATE discounts SET created_by = :owner_id WHERE created_by = 1")
-       ->execute([':owner_id' => $ownerId]);
-
-    // Record audit log
-    $db->prepare("
-        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_values, ip_address)
-        VALUES (:user_id, 'owner_bootstrap', 'users', :entity_id, :new_values, 'CLI')
-    ")->execute([
-        ':user_id'   => $ownerId,
-        ':entity_id' => $ownerId,
-        ':new_values' => json_encode(['email' => $email, 'role' => 'owner', 'bootstrap' => 'initial']),
+if ($isUpdate) {
+    $stmt = $db->prepare("
+        UPDATE users 
+        SET email = :email, password_hash = :hash, first_name = :fname, last_name = :lname, phone = :phone, updated_at = NOW()
+        WHERE id = :id
+    ");
+    $stmt->execute([
+        ':email' => $email,
+        ':hash'  => $passwordHash,
+        ':fname' => $firstName,
+        ':lname' => $lastName,
+        ':phone' => $phone,
+        ':id'    => $existingOwner['id'],
     ]);
-
-    echo "\n========================================================\n";
-    echo "  SUCCESS: SUPER ADMINISTRATOR ACCOUNT CREATED!        \n";
-    echo "========================================================\n";
-    echo "Owner ID:       {$ownerId}\n";
-    echo "Owner UUID:     {$uuid}\n";
-    echo "Owner Name:     {$firstName} {$lastName}\n";
-    echo "Owner Email:    {$email}\n";
-    echo "Owner Role:     owner (Super Administrator)\n";
-    echo "Full Access:    Granted to ALL ERP Modules\n";
-    echo "========================================================\n";
-    exit(0);
+    $ownerId = (int)$existingOwner['id'];
 } else {
-    echo "[ERROR] Failed to insert owner record.\n";
-    exit(1);
+    $uuid = Uuid::v4();
+    $stmt = $db->prepare("
+        INSERT INTO users (
+            uuid, email, phone, password_hash, first_name, last_name, role, is_active, is_owner, email_verified_at
+        ) VALUES (
+            :uuid, :email, :phone, :hash, :fname, :lname, 'owner', 1, 1, NOW()
+        )
+    ");
+    $stmt->execute([
+        ':uuid'  => $uuid,
+        ':email' => $email,
+        ':phone' => $phone,
+        ':hash'  => $passwordHash,
+        ':fname' => $firstName,
+        ':lname' => $lastName,
+    ]);
+    $ownerId = (int)$db->lastInsertId();
+}
+
+echo "✓ Super Administrator provisioned successfully (User ID: {$ownerId}).\n\n";
+
+if ($passwordGenerated) {
+    echo "┌──────────────────────────────────────────────────────────────┐\n";
+    echo "│ [ATTENTION] GENERATED ONE-TIME SUPER ADMINISTRATOR PASSWORD: │\n";
+    echo "├──────────────────────────────────────────────────────────────┤\n";
+    echo "│ Email:    " . str_pad($email, 50) . " │\n";
+    echo "│ Password: " . str_pad($password, 50) . " │\n";
+    echo "├──────────────────────────────────────────────────────────────┤\n";
+    echo "│ Store this password in your password manager immediately.     │\n";
+    echo "│ It is NOT stored in plain text and will NOT be shown again.  │\n";
+    echo "└──────────────────────────────────────────────────────────────┘\n\n";
 }

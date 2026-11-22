@@ -192,4 +192,107 @@ final class ProductController
         $this->products->deleteImage($id);
         Response::json(null, 'Product image removed successfully');
     }
+
+    /**
+     * POST /api/v1/products/import (CSV Product Import)
+     */
+    public function importCsv(Request $request): void
+    {
+        if (empty($_FILES['csv']) || $_FILES['csv']['error'] !== UPLOAD_ERR_OK) {
+            Response::error('A valid CSV file must be uploaded under the "csv" field', 400);
+        }
+
+        $filePath = $_FILES['csv']['tmp_name'];
+        $handle = fopen($filePath, 'r');
+        if (!$handle) {
+            Response::error('Could not open uploaded CSV file', 500);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            Response::error('CSV file is empty', 400);
+        }
+
+        $header = array_map(fn($col) => strtolower(trim($col)), $header);
+        $imported = 0;
+        $updated = 0;
+        $errors = [];
+        $rowNum = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNum++;
+            if (empty(array_filter($row))) {
+                continue;
+            }
+
+            $data = array_combine($header, array_pad($row, count($header), ''));
+            if (empty($data['name']) || empty($data['sku']) || !isset($data['price'])) {
+                $errors[] = "Row {$rowNum}: name, sku, and price are required";
+                continue;
+            }
+
+            try {
+                $existing = $this->products->getProductBySku($data['sku']);
+                if ($existing) {
+                    $this->products->updateProduct((int)$existing['id'], [
+                        'name'        => $data['name'],
+                        'price'       => (float)$data['price'],
+                        'description' => $data['description'] ?? $existing['description'] ?? '',
+                    ]);
+                    $updated++;
+                } else {
+                    $this->products->createProduct([
+                        'name'           => $data['name'],
+                        'sku'            => $data['sku'],
+                        'price'          => (float)$data['price'],
+                        'category_id'    => !empty($data['category_id']) ? (int)$data['category_id'] : 1,
+                        'description'    => $data['description'] ?? '',
+                        'stock_quantity' => !empty($data['stock_quantity']) ? (int)$data['stock_quantity'] : 0,
+                    ]);
+                    $imported++;
+                }
+            } catch (Exception $e) {
+                $errors[] = "Row {$rowNum} ({$data['sku']}): " . $e->getMessage();
+            }
+        }
+
+        fclose($handle);
+
+        Response::json([
+            'imported' => $imported,
+            'updated'  => $updated,
+            'errors'   => $errors,
+        ], 'Product CSV import process completed');
+    }
+
+    /**
+     * GET /api/v1/products/export (CSV Product Export)
+     */
+    public function exportCsv(Request $request): void
+    {
+        $res = $this->products->listProducts(['per_page' => 5000]);
+        $items = $res['data'] ?? [];
+
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="products_export_' . date('Y-m-d') . '.csv"');
+
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['ID', 'Name', 'SKU', 'Category', 'Price', 'Stock', 'IsActive']);
+
+        foreach ($items as $item) {
+            fputcsv($out, [
+                $item['id'] ?? '',
+                $item['name'] ?? '',
+                $item['sku'] ?? '',
+                $item['category_name'] ?? '',
+                $item['price'] ?? 0,
+                $item['stock_quantity'] ?? 0,
+                !empty($item['is_active']) ? '1' : '0',
+            ]);
+        }
+
+        fclose($out);
+        exit;
+    }
 }

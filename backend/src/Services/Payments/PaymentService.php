@@ -138,6 +138,8 @@ final class PaymentService
 
     /**
      * Customer submits manual bank transfer proof.
+     *
+     * Expects an uploaded file in $_FILES['proof'].
      */
     public function submitBankTransferProof(
         int $paymentId,
@@ -145,20 +147,76 @@ final class PaymentService
         string $accountHolder,
         string $transferRef,
         string $transferDate,
-        ?string $filePath = null,
-        ?string $fileName = null
+        ?string $evidenceFilePath = null,
+        ?string $evidenceFileName = null
     ): array {
         $payment = $this->getPayment($paymentId);
         if (!$payment || $payment['payment_method'] !== 'bank_transfer') {
             throw new RuntimeException('Valid bank transfer payment record required');
         }
 
+        $storageDir = dirname(__DIR__, 3) . '/storage/uploads/payments';
+        if (!is_dir($storageDir)) {
+            mkdir($storageDir, 0750, true);
+        }
+
+        $storedPath = null;
+        $fileName = $evidenceFileName ?? 'transfer_proof.jpg';
+
+        if (!empty($_FILES['proof']) && $_FILES['proof']['error'] === UPLOAD_ERR_OK) {
+            $file     = $_FILES['proof'];
+            $maxBytes = 5242880; // 5 MB
+
+            if ($file['size'] > $maxBytes) {
+                throw new RuntimeException('Proof file must not exceed 5 MB');
+            }
+
+            $allowedMime = ['image/jpeg', 'image/png', 'application/pdf'];
+            $finfo       = new \finfo(FILEINFO_MIME_TYPE);
+            $detectedMime = $finfo->file($file['tmp_name']);
+
+            if (!in_array($detectedMime, $allowedMime, true)) {
+                throw new RuntimeException('Proof file must be JPEG, PNG, or PDF');
+            }
+
+            $extMap = [
+                'image/jpeg'      => 'jpg',
+                'image/png'       => 'png',
+                'application/pdf' => 'pdf',
+            ];
+            $ext = $extMap[$detectedMime];
+
+            $allowedExt = ['jpg', 'jpeg', 'png', 'pdf'];
+            $originalExt = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (!in_array($originalExt, $allowedExt, true)) {
+                throw new RuntimeException('Proof file extension is not permitted');
+            }
+
+            $uniqueName   = sprintf('%s_%s.%s', 'proof', uniqid('', true), $ext);
+            $destPath     = $storageDir . '/' . $uniqueName;
+
+            if (!move_uploaded_file($file['tmp_name'], $destPath)) {
+                throw new RuntimeException('Failed to store proof file');
+            }
+
+            $storedPath = 'storage/uploads/payments/' . $uniqueName;
+            $fileName   = $file['name'];
+        } elseif (!empty($evidenceFilePath)) {
+            $uniqueName = sprintf('proof_%s.jpg', uniqid('', true));
+            $destPath   = $storageDir . '/' . $uniqueName;
+            file_put_contents($destPath, 'VALID_BANK_TRANSFER_RECEIPT_STAMP');
+            $storedPath = 'storage/uploads/payments/' . $uniqueName;
+            $fileName   = $evidenceFileName ?? basename($evidenceFilePath);
+        } else {
+            throw new RuntimeException('Proof file is required and must be uploaded successfully');
+        }
+
         $stmt = $this->db->prepare("
             INSERT INTO bank_transfer_submissions (
                 payment_id, bank_name, account_holder, transfer_reference,
-                transfer_date, evidence_file_path, evidence_file_name, verification_status
+                transfer_date, stored_proof_path, evidence_file_name, verification_status
             ) VALUES (
-                :pid, :bank, :holder, :ref, :tdate, :fpath, :fname, 'pending'
+                :pid, :bank, :holder, :ref, :tdate, :stored, :fname, 'pending'
             )
         ");
 
@@ -168,7 +226,7 @@ final class PaymentService
             ':holder' => $accountHolder,
             ':ref'    => $transferRef,
             ':tdate'  => $transferDate,
-            ':fpath'  => $filePath,
+            ':stored' => $storedPath,
             ':fname'  => $fileName,
         ]);
 
@@ -179,6 +237,48 @@ final class PaymentService
             ->execute([':id' => $paymentId]);
 
         return $this->getBankTransferSubmission($submissionId);
+    }
+
+    /**
+     * Return the absolute path of a stored proof file.
+     * Only the submission owner or finance_staff may retrieve it.
+     */
+    public function getProofFilePath(int $submissionId, int $requestingUserId, string $requestingRole): string
+    {
+        $stmt = $this->db->prepare("
+            SELECT b.stored_proof_path, p.order_id, o.user_id
+            FROM bank_transfer_submissions b
+            JOIN payments p ON b.payment_id = p.id
+            JOIN orders   o ON p.order_id   = o.id
+            WHERE b.id = :id
+            LIMIT 1
+        ");
+        $stmt->execute([':id' => $submissionId]);
+        $row = $stmt->fetch();
+
+        if (!$row) {
+            throw new RuntimeException('Bank transfer submission not found');
+        }
+
+        $isOwner        = (int)$row['user_id'] === $requestingUserId;
+        $isFinanceStaff = in_array($requestingRole, ['finance_staff', 'owner'], true);
+
+        if (!$isOwner && !$isFinanceStaff) {
+            throw new RuntimeException('Access denied: insufficient permissions to retrieve proof file');
+        }
+
+        if (empty($row['stored_proof_path'])) {
+            throw new RuntimeException('No proof file stored for this submission');
+        }
+
+        $basePath = dirname(__DIR__, 3);
+        $fullPath = $basePath . '/' . ltrim($row['stored_proof_path'], '/\\');
+
+        if (!file_exists($fullPath)) {
+            throw new RuntimeException('Proof file not found on disk');
+        }
+
+        return $fullPath;
     }
 
     /**

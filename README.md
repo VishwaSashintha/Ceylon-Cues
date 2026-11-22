@@ -1,6 +1,6 @@
 # Ceylon Cues — Complete Backend System
 
-Production-ready backend architecture for **Ceylon Cues**, a premium billiards, pool cue, and cue-sports accessories enterprise based in Sri Lanka. 
+Production-ready backend architecture for **Ceylon Cues**, a premier billiards, pool cue, and cue-sports accessories enterprise based in Sri Lanka.
 
 The backend operates as an independent, secure REST API engine powering central ERP operations, multi-location inventory (Main Warehouse and Retail Shop), online website stock allocation, retail shop POS terminals, purchase orders, customer service, payments, and business analytics.
 
@@ -8,14 +8,14 @@ The backend operates as an independent, secure REST API engine powering central 
 
 ## 1. Project Overview
 
-Ceylon Cues is a privately owned single-enterprise business. The owner serves as the sole Super Administrator.
+Ceylon Cues is a privately owned enterprise. The owner serves as the sole Super Administrator.
 
-This backend provides a unified, centralized data model and API surface designed to connect future client applications:
+This backend provides a unified, centralized data model and API surface connecting client applications:
 1. **Customer-Facing E-Commerce Storefront**
 2. **Central ERP Business Management Dashboard**
 3. **Physical Retail Shop Point of Sale (POS) Terminal**
 
-All operations share one central MySQL 8 database, strict relational integrity, atomic database transactions, and consistent financial precision.
+All operations share one central MySQL 8 database, strict relational integrity, atomic database transactions (`FOR UPDATE`), and consistent financial precision in Sri Lankan Rupees (`LKR`).
 
 ---
 
@@ -23,7 +23,7 @@ All operations share one central MySQL 8 database, strict relational integrity, 
 
 ```
                        ┌────────────────────────────────────────────────┐
-                       │               Future Clients                   │
+                       │               Client Applications              │
                        │   Storefront  │  ERP Dashboard  │  Retail POS  │
                        └───────────────────────┬────────────────────────┘
                                                │ HTTP / REST (JSON)
@@ -36,36 +36,36 @@ All operations share one central MySQL 8 database, strict relational integrity, 
                                                ▼
                        ┌────────────────────────────────────────────────┐
                        │               Core Middleware                  │
-                       │  CorsMiddleware  │  JsonBodyMiddleware         │
-                       │  AuthMiddleware  │  RoleMiddleware             │
-                       │  RateLimitMiddleware │ CsrfMiddleware         │
+                       │  SecurityHeaders │ CorsMiddleware (Whitelisted)│
+                       │  JsonBodyMiddleware  │ RateLimitMiddleware     │
+                       │  AuthMiddleware      │ RoleMiddleware          │
                        └───────────────────────┬────────────────────────┘
                                                │
                                                ▼
                        ┌────────────────────────────────────────────────┐
                        │           REST API Controllers (v1)            │
-                       │  Auth      │ Products   │ Categories │ Cart    │
-                       │  Checkout  │ Orders     │ Pos        │ Erp     │
-                       │  Inventory │ Purchasing │ Suppliers  │ Returns │
-                       │  Customers │ Delivery   │ Marketing  │ Reports │
-                       │  Settings  │ Support    │ Payments   │ Notif   │
+                       │  Auth / 2FA │ Products    │ Categories │ Cart  │
+                       │  Checkout   │ Orders      │ Pos        │ Erp   │
+                       │  Inventory  │ Purchasing  │ Suppliers  │ COD   │
+                       │  Customers  │ Delivery    │ Marketing  │ CMS   │
+                       │  Reports    │ Settings    │ Support    │ Pay   │
                        └───────────────────────┬────────────────────────┘
                                                │
                                                ▼
                        ┌────────────────────────────────────────────────┐
                        │              Business Services                 │
-                       │  OrderService      │  InventoryService         │
-                       │  StockTransfer     │  StockAllocationService   │
-                       │  PosService        │  PurchaseOrderService     │
-                       │  SupplierService   │  CustomerService          │
-                       │  ReturnService     │  PaymentService           │
-                       │  ReportService     │  WhatsAppService          │
+                       │  Auth / TotpService │  OrderService            │
+                       │  InventoryService   │  StockAllocationService  │
+                       │  PosService         │  PurchaseOrderService    │
+                       │  SupplierService    │  CustomerService (PDPA)  │
+                       │  ReturnService      │  PaymentService          │
+                       │  ReportService      │  BackupService (AES-256) │
                        └───────────────────────┬────────────────────────┘
                                                │
                                                ▼
                        ┌────────────────────────────────────────────────┐
                        │           MySQL 8 Database (PDO Engine)        │
-                       │   61 Relational Tables, Transactions & Foreign Keys│
+                       │ 75 Relational Tables, Transactions & Indexes   │
                        └────────────────────────────────────────────────┘
 ```
 
@@ -75,12 +75,15 @@ All operations share one central MySQL 8 database, strict relational integrity, 
 
 | Layer | Technology | Details |
 |---|---|---|
-| **Language** | PHP 8.2+ | Native strict typing, typed properties, match expressions |
-| **Database** | MySQL 8.0+ | InnoDB, Foreign Key Constraints, Transactions (`FOR UPDATE`), 61 tables |
+| **Language** | PHP 8.2+ | Strict typing (`declare(strict_types=1)`), typed properties, match expressions |
+| **Database** | MySQL 8.0+ / MariaDB 10.4+ | InnoDB, Foreign Key Constraints, Row-level Locking (`FOR UPDATE`), 75 tables |
 | **Database Abstraction** | PDO | Prepared statements with parameterized queries, SQLi immunity |
-| **Web Server** | Apache (XAMPP) | URL rewriting via `public/.htaccess` |
-| **Password Hashing** | Argon2id / Bcrypt | Sensitive data protected with secure salt generation |
-| **Authentication** | Cryptographic Session Tokens | High-entropy 64-character tokens, stored hashed, rate-limited |
+| **Security Headers** | Custom Middleware | HSTS, CSP, X-Frame-Options (`SAMEORIGIN`), X-Content-Type-Options (`nosniff`) |
+| **CORS** | Whitelist-based | Configurable domain whitelist with credentials and `Vary: Origin` |
+| **Password Hashing** | Argon2id | Memory cost 65536, time cost 4, threads 1 |
+| **Two-Factor Auth (2FA)** | RFC 6238 TOTP | Pure-PHP implementation, 30s step, clock-skew tolerance |
+| **Backup Encryption** | AES-256-CBC | Authenticated symmetrical encryption with IV prefixing |
+| **Testing** | PHPUnit 10.5 & Custom Runner | 25 unit/feature tests + 29 end-to-end integration scenario tests |
 | **Currency** | `LKR` (Sri Lankan Rupee) | Standardized `DECIMAL(12,2)` / `DECIMAL(14,2)` arithmetic |
 | **Timezone** | `Asia/Colombo` (UTC+5:30) | Consistent across PHP runtime, migrations, and database queries |
 
@@ -92,15 +95,20 @@ The repository is organized into exactly two top-level application directories:
 
 ```text
 Ceylon-Cues/
+├── .github/                        GitHub Actions CI Workflows
+│   └── workflows/tests.yml         Automated test pipeline for PHP 8.2 & MySQL
+│
 ├── backend/                        PHP 8.2+ Application Source Code
-│   ├── bin/                        CLI Workers
-│   │   └── notification-worker.php Background queue worker for notifications
+│   ├── bin/                        CLI Tools & Schedulers
+│   │   ├── cron.php                Central cron engine (sales summaries, expiry, backups)
+│   │   ├── notification-worker.php Background queue worker for notifications
+│   │   └── restore-backup.php      CLI restore script for AES-256 encrypted backups
 │   ├── config/                     Application Configuration
 │   │   ├── app.php                 General environment & timezone settings
 │   │   └── database.php            PDO connection configuration
 │   ├── database/                   Database Migrations, Seeds & Scripts
-│   │   ├── migrations/             61 Migration scripts (001 to 099)
-│   │   ├── bootstrap.php           Initializes owner account & settings
+│   │   ├── migrations/             Schema migration scripts (001 to 100)
+│   │   ├── bootstrap.php           Secure owner bootstrapper (random password, Argon2id)
 │   │   ├── install.php             Fresh database creation & migration runner
 │   │   ├── migrate.php             Migration runner
 │   │   └── seed.php                Seed data (categories, initial products, settings)
@@ -108,21 +116,26 @@ Ceylon-Cues/
 │   │   ├── API.md                  Complete Markdown API documentation
 │   │   └── openapi.json            OpenAPI 3.0 specification
 │   ├── public/                     Web server document root
-│   │   ├── uploads/                Persistent storage for images and proofs
+│   │   ├── uploads/                Public catalog assets (PHP execution denied via .htaccess)
+│   │   ├── sitemap.php             Dynamic XML sitemap generator
 │   │   ├── .htaccess               URL rewrite rules routing to index.php
 │   │   └── index.php               Single entry front controller
 │   ├── routes/                     API Route definitions
-│   │   └── api.php                 All v1 API routes
+│   │   └── api.php                 All v1 API routes (Auth, POS, ERP, Storefront, CMS)
 │   ├── src/                        Core classes, Controllers, Middleware, Services
 │   │   ├── Controllers/Api/V1/     Controllers for all modules
 │   │   ├── Core/                   Application, Database, Env, Request, Response, Router, Validator
-│   │   ├── Middleware/             Auth, CORS, CSRF, Role, RateLimit
+│   │   ├── Middleware/             SecurityHeaders, Cors, JsonBody, Auth, Role, RateLimit
 │   │   └── Services/               Domain business logic services
-│   ├── storage/                    Logs and database backups (git-ignored)
-│   │   ├── backups/                Automated SQL database dumps
-│   │   └── logs/                   Application execution logs
-│   ├── tests/                      Automated scenario test suite
-│   │   └── run-tests.php           29 Comprehensive end-to-end business test scenarios
+│   ├── storage/                    Private storage (web-inaccessible)
+│   │   ├── backups/                AES-256 encrypted database dumps (.sql.enc)
+│   │   ├── logs/                   Application execution logs
+│   │   └── uploads/payments/       Private bank-transfer deposit slips (served via auth endpoint)
+│   ├── tests/                      Automated test suites
+│   │   ├── Unit/                   PHPUnit unit tests (TOTP, Hashing, Idempotency, Backups)
+│   │   ├── Feature/                PHPUnit feature tests (Auth, Orders, POS, Wishlists)
+│   │   └── run-tests.php           29 Master business scenario integration tests
+│   ├── phpunit.xml                 PHPUnit configuration
 │   ├── composer.json               Composer dependencies
 │   ├── composer.lock
 │   └── .env.example                Template environment configuration
@@ -142,64 +155,27 @@ Ceylon-Cues/
 - **MySQL / MariaDB**: 8.0+ (InnoDB storage engine support).
 - **Apache**: Web server with `mod_rewrite` enabled.
 - **Composer**: Dependency manager.
-- **XAMPP**: Recommended local development bundle on Windows.
 
 ---
 
-## 6. XAMPP Installation & Directory Link
+## 6. Installation & Setup
 
-To serve the project directly from XAMPP without moving it from your workspace:
+### 1. Environment Configuration
 
-1. Open PowerShell or Command Prompt as **Administrator**.
-2. Create a Windows Directory Junction from XAMPP's `htdocs` to your project folder:
+Copy the template configuration file:
 
-```powershell
-mklink /J "C:\xampp\htdocs\ceylon-cues" "c:\Users\Vishwa\Desktop\Ceylon Cues"
+```bash
+cp backend/.env.example backend/.env
 ```
 
-3. Ensure Apache and MySQL are running in the XAMPP Control Panel.
-
----
-
-## 7. Database Setup
-
-1. Copy the environment configuration template:
-
-```powershell
-Copy-Item backend\.env.example backend\.env
-```
-
-2. Configure database credentials in `backend\.env` (see Section 8).
-
-3. Run the installer to create the database schema and execute all 61 migration scripts:
-
-```powershell
-C:\xampp\php\php.exe backend\database\install.php
-```
-
-4. Populate initial categories, products, delivery zones, notification templates, and settings:
-
-```powershell
-C:\xampp\php\php.exe backend\database\seed.php
-```
-
-5. Bootstrap the initial owner account and system settings:
-
-```powershell
-C:\xampp\php\php.exe backend\database\bootstrap.php
-```
-
----
-
-## 8. Environment Configuration
-
-Edit `backend\.env`:
+Configure your local database credentials and app key in `backend/.env`:
 
 ```env
 APP_NAME="Ceylon Cues"
 APP_ENV=local
 APP_DEBUG=true
 APP_URL=http://localhost/ceylon-cues/backend/public
+APP_KEY=generate-a-secure-32-byte-hex-key
 APP_TIMEZONE=Asia/Colombo
 
 DB_HOST=127.0.0.1
@@ -208,219 +184,155 @@ DB_DATABASE=ceylon_cues
 DB_USERNAME=root
 DB_PASSWORD=
 DB_CHARSET=utf8mb4
-DB_COLLATION=utf8mb4_unicode_ci
 
-JWT_SECRET=your-secure-random-jwt-secret-string-here
-APP_KEY=your-secure-app-key-here
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080,https://ceyloncues.lk
+WEBHOOK_SECRET=your-secure-webhook-secret
+```
 
-WHATSAPP_PROVIDER=official
-WHATSAPP_API_URL=https://graph.facebook.com/v19.0/YOUR_PHONE_NUMBER_ID/messages
-WHATSAPP_ACCESS_TOKEN=your_token_here
-WHATSAPP_OWNER_NUMBER=+94770000000
+### 2. Install Dependencies
 
-MAIL_DRIVER=smtp
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=2525
-MAIL_USERNAME=
-MAIL_PASSWORD=
+```bash
+cd backend
+composer install
+```
+
+### 3. Database Initialization
+
+Run the database installer to create the database schema and execute all migrations:
+
+```bash
+php database/install.php
+```
+
+Populate initial categories, products, delivery zones, and templates:
+
+```bash
+php database/seed.php
+```
+
+Bootstrap the initial owner account:
+
+```bash
+php database/bootstrap.php
+```
+
+> **Security Note:** `bootstrap.php` generates a cryptographically secure random password, hashes it using Argon2id, and prints it once to your console. It enforces a strict single-owner policy and never hardcodes credentials.
+
+---
+
+## 7. Web Server Configuration
+
+Point your virtual host document root directly to `backend/public/`:
+
+```apache
+<VirtualHost *:80>
+    ServerName ceyloncues.local
+    DocumentRoot "/path/to/Ceylon-Cues/backend/public"
+    <Directory "/path/to/Ceylon-Cues/backend/public">
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
 ```
 
 ---
 
-## 9. Owner Account Setup
+## 8. Automated Testing
 
-Running `backend/database/bootstrap.php` initializes the sole Super Administrator account:
+### PHPUnit Test Suite
 
-- **Email:** `owner@ceyloncues.lk`
-- **Password:** `CeylonCuesOwner2026!`
-- **Role:** `owner` (`is_owner = 1`)
+Run the full suite of unit and feature tests:
 
-The owner possesses a permanent RBAC bypass, allowing unrestricted access across all ERP, inventory, financial, and administrative operations.
-
----
-
-## 10. How to Start the Backend
-
-1. Start **Apache** and **MySQL** in XAMPP.
-2. The REST API is accessible at:
-   ```text
-   http://localhost/ceylon-cues/backend/public/api/v1
-   ```
-3. Test connectivity with a public endpoint:
-   ```text
-   GET http://localhost/ceylon-cues/backend/public/api/v1/products
-   GET http://localhost/ceylon-cues/backend/public/api/v1/categories
-   GET http://localhost/ceylon-cues/backend/public/api/v1/settings/public
-   ```
-
----
-
-## 11. API Documentation Location
-
-Detailed documentation of all endpoints, parameters, permissions, request schemas, and responses is provided in:
-
-- **Markdown Reference:** [`backend/docs/API.md`](file:///c:/Users/Vishwa/Desktop/Ceylon%20Cues/backend/docs/API.md)
-- **OpenAPI 3.0 Specification:** [`backend/docs/openapi.json`](file:///c:/Users/Vishwa/Desktop/Ceylon%20Cues/backend/docs/openapi.json)
-
----
-
-## 12. Authentication & Permissions (RBAC)
-
-The system uses a token-based authentication mechanism. Login via `POST /api/v1/auth/login` returns a 64-character bearer token.
-
-Pass this token in all subsequent requests:
-```http
-Authorization: Bearer <token>
+```bash
+cd backend
+vendor/bin/phpunit --no-coverage
 ```
 
-### Supported Roles
-- `owner`: Sole Super Administrator.
-- `shop_manager`: Manage shop operations, POS, inventory, staff, and customer orders.
-- `shop_cashier`: Register sales, open/close POS register sessions.
-- `warehouse_manager`: Manage warehouse stock, receive purchase orders (GRN), and process transfers.
-- `inventory_staff`: Record manual adjustments and stock counts.
-- `order_staff`: Update order status, packaging, and courier tracking details.
-- `finance_staff`: Manage expenses, verify bank transfers, view profit & loss, and audit finances.
-- `customer_support`: Reply to tickets, view customer inquiries, handle return requests.
-- `customer`: Storefront customer account.
+### 29 Master Business Scenarios Test Suite
 
----
+Execute the comprehensive end-to-end integration test runner:
 
-## 13. Inventory Architecture & Stock Isolation
-
-The inventory system manages physical stock across distinct locations:
-
-1. **Main Warehouse (`type: warehouse`)**: Primary physical repository where goods receipts (GRNs) are accepted from suppliers.
-2. **Physical Retail Shop (`type: shop`)**: Physical store location where walk-in POS sales occur.
-3. **Website Stock Allocation (`online_stock_allocations`)**: Virtual allocation explicitly designated for online sales.
-
-### Oversell Protection & Allocation Rule
-- If the Main Warehouse holds 10 physical units, the owner can allocate only 3 units to the website.
-- The storefront API (`GET /products/{id}`) reports a maximum availability of 3 units.
-- Online orders immediately reserve stock in the warehouse and decrement the online allocation inside an atomic database transaction (`SELECT ... FOR UPDATE`).
-- POS sales deduct directly from the shop's stock, leaving warehouse and website allocations unaffected.
-- Order cancellations automatically release reserved warehouse stock and restore online allocations.
-
----
-
-## 14. Payment Architecture
-
-The backend supports multiple payment methods with strict verification rules:
-
-| Payment Method | Implementation Status | Verification Policy |
-|---|---|---|
-| **Cash** | Fully Functional | Immediate confirmation at POS terminal. Calculated against change given. |
-| **Card (POS)** | Fully Functional | Recorded at POS register with physical terminal reference code. |
-| **Bank Transfer** | Fully Functional | Customer submits deposit slip reference & metadata. Stored as `pending`. Requires manual review and verification via `POST /api/v1/payments/bank-transfers/{id}/verify`. |
-| **Cash on Delivery (COD)** | Fully Functional | Handled via order lifecycle upon delivery confirmation. |
-| **KOKO (BNPL)** | Ready for Credentials | Adapter configured (`KokoAdapter.php`). External credentials required for production live gateway webhook. |
-| **Mintpay (BNPL)** | Ready for Credentials | Adapter configured (`MintpayAdapter.php`). External credentials required for production live gateway webhook. |
-| **Visa / Mastercard Online** | Ready for Credentials | Adapter configured (`VisaMastercardAdapter.php`). External credentials required for production live gateway webhook. |
-
-> **Security Rule:** The backend never simulates successful real payment gateway transactions. Payments are only confirmed through verified callbacks or authorized administrative review.
-
----
-
-## 15. Testing Instructions
-
-The backend includes a comprehensive automated test runner verifying all 29 master business scenarios directly against the MySQL database.
-
-Execute the test suite:
-
-```powershell
-C:\xampp\php\php.exe backend\tests\run-tests.php
+```bash
+php backend/tests/run-tests.php
 ```
 
-### Verified Test Scenarios
-1. `Scenario 1`: Create product through ERP.
-2. `Scenario 2`: Add actual stock to warehouse.
-3. `Scenario 3`: Transfer stock to physical shop.
-4. `Scenario 4`: Configure website stock allocation.
-5. `Scenario 5`: Place online order.
-6. `Scenario 6`: Confirm correct stock reservation & online allocation decrement.
-7. `Scenario 7`: Complete shop POS sale.
-8. `Scenario 8`: Verify correct shop quantity deduction.
-9. `Scenario 9`: Verify warehouse stock invariance.
-10. `Scenario 10`: Prevent inventory overselling under concurrency.
-11. `Scenario 11`: Submit bank transfer deposit slip.
-12. `Scenario 12`: Manually verify bank transfer payment.
-13. `Scenario 13`: Calculate district delivery charges & free shipping thresholds.
-14. `Scenario 14`: Apply percentage & fixed discount coupons.
-15. `Scenario 15`: Cancel order and release reserved stock.
-16. `Scenario 16`: Process return and financial refund.
-17. `Scenario 17`: Create customer support ticket & reply thread.
-18. `Scenario 18`: Queue WhatsApp business event notification.
-19. `Scenario 19`: Prevent notification duplicates & run worker dispatch.
-20. `Scenario 20`: Enforce Role-Based Access Control (RBAC).
-21. `Scenario 21`: Generate full database backup SQL file.
-22. `Scenario 22`: Security audit against SQLi, Argon2id, and IDOR attacks.
-23. `Scenario 23`: Supplier profile management & purchase history.
-24. `Scenario 24`: Purchase order creation & Goods Receipt (GRN) into warehouse.
-25. `Scenario 25`: Customer management, address book & lifetime spend metrics.
-26. `Scenario 26`: Return request lifecycle, approval & inventory restock.
-27. `Scenario 27`: Physical stock count & variance reconciliation.
-28. `Scenario 28`: Reporting & financial intelligence suite (Sales, Products, Inventory, P&L).
-29. `Scenario 29`: POS session audit & daily sales summary calculations.
-
-**Result: 29/29 PASSED (100% Success Rate).**
+All 29 business scenarios verify:
+1. Product lifecycle and SKU assignment
+2. Main warehouse stock additions
+3. Warehouse-to-Shop stock transfers
+4. Virtual online stock allocations
+5. Storefront checkout and stock reservation
+6. Oversell prevention and concurrency locks
+7. POS sales execution and cash change calculation
+8. POS shop inventory deduction
+9. Warehouse stock invariance
+10. Overselling denial
+11. Private bank-transfer proof upload and storage
+12. Manual bank-transfer payment verification
+13. District delivery calculation & free shipping
+14. Percentage and fixed discount codes
+15. Order cancellations and stock restoration
+16. Return requests and financial refund processing
+17. Customer support ticketing thread
+18. WhatsApp notification queueing
+19. Notification duplicate prevention and worker execution
+20. Role-Based Access Control (RBAC) enforcement
+21. AES-256 encrypted database backups
+22. SQL injection, Argon2id, and IDOR defenses
+23. Supplier management & purchase history
+24. Purchase orders and Goods Receipts (GRN)
+25. Customer address book and lifetime spend tracking
+26. Return lifecycle and warehouse restock
+27. Physical stock count sheets & reconciliation
+28. Financial reporting (P&L, sales, inventory valuation)
+29. POS session register audit & daily sales calculations
 
 ---
 
-## 16. Background Worker & Notification Setup
+## 9. Scheduled Jobs & Background Workers
 
-The notification system uses an asynchronous queue table (`notification_queue`) to ensure zero latency during user requests.
+### Central Cron Engine (`backend/bin/cron.php`)
 
-To run the background worker daemon:
+Runs recurring maintenance tasks:
+- **Reservation Expiry**: Cancels unpaid orders older than expiration and restores inventory.
+- **Campaign Lifecycle**: Activates scheduled campaigns and concludes ended ones.
+- **Coupon Expiry**: Deactivates expired discount codes.
+- **Daily Sales Summary**: Aggregates daily orders and revenue.
+- **Low-Stock Alerts**: Detects items below reorder points and queues alerts.
+- **Database Backup**: Creates AES-256 encrypted SQL dumps and purges backups older than 30 days.
+- **Audit Log Cleanup**: Prunes audit entries older than 90 days.
 
-```powershell
-C:\xampp\php\php.exe backend\bin\notification-worker.php
+Configure on your server's crontab:
+
+```bash
+0 * * * * php /path/to/Ceylon-Cues/backend/bin/cron.php >> /var/log/ceylon-cron.log 2>&1
 ```
 
-### Production Setup
-In a production Linux/Windows environment:
-- Set up a cron job or Windows Scheduled Task to run the worker every 1 to 5 minutes:
-  ```bash
-  * * * * * /usr/bin/php /var/www/ceylon-cues/backend/bin/notification-worker.php --limit=50 >> /var/log/ceylon-cues-worker.log 2>&1
-  ```
-- Or run it under a process manager like **Supervisor** or **systemd** as a permanent daemon.
+### Notification Queue Worker (`backend/bin/notification-worker.php`)
+
+Dispatches asynchronous WhatsApp, SMS, and Email notifications from `notification_queue`:
+
+```bash
+php backend/bin/notification-worker.php --limit=50
+```
+
+### Encrypted Database Backup & Restore
+
+Create an encrypted backup:
+```bash
+php -r "require 'backend/vendor/autoload.php'; (new CeylonCues\Services\Settings\BackupService())->createBackup();"
+```
+
+Restore an encrypted backup:
+```bash
+php backend/bin/restore-backup.php <filename.sql.enc>
+```
 
 ---
 
-## 17. Production Deployment Considerations
+## 10. API Documentation
 
-1. **Environment Security**:
-   - Set `APP_ENV=production` and `APP_DEBUG=false` in `backend/.env`.
-   - Ensure `backend/.env` is never exposed or committed to source control.
-2. **Web Server Root**:
-   - Point your web server document root directly to `backend/public/`. The parent directories must not be publicly accessible via HTTP.
-3. **HTTPS / TLS**:
-   - Enforce HTTPS and HSTS headers on production domains.
-4. **CORS Configuration**:
-   - Update `CorsMiddleware.php` to restrict allowed origins to your production storefront and ERP domains instead of `*`.
-5. **Storage Permissions**:
-   - Ensure `backend/storage/` and `backend/public/uploads/` are writable by the web server user (`www-data` or `apache`).
-6. **Payment Credentials**:
-   - Add production merchant credentials in `backend/.env` for KOKO, Mintpay, and your online card gateway.
-
----
-
-## Backend Completion Summary
-
-| Module | Status | Notes |
-|---|---|---|
-| Authentication & RBAC | Complete | Multi-role permissions, Argon2id, sessions, brute-force limits |
-| Products & Categories | Complete | Quality tiers, categories, SKU, image uploads, soft deletes |
-| Inventory & Locations | Complete | Warehouse, Shop, online allocation, transfers, adjustments |
-| Stock Counts & Reconciliation | Complete | Physical count sheet, variance detection, automatic ledger updates |
-| Suppliers & Purchasing | Complete | Supplier profiles, purchase orders, Goods Receipt (GRN) |
-| Customer Management | Complete | Address book, profile, metrics, lifetime spend calculation |
-| Orders & Fulfillment | Complete | Order lifecycle, reserved stock tracking, courier fulfillment |
-| Retail POS Terminal | Complete | Shift sessions, receipt generation, cash/card tracking, daily summaries |
-| Payments & Bank Transfers | Complete | Deposit slip submission, manual verification, refund records |
-| Returns & Refunds | Complete | Request submission, approval, rejected reasons, stock restoration |
-| Delivery & Zones | Complete | District lookup, zone rates, free delivery thresholds |
-| Marketing & Coupons | Complete | Percentage and fixed discounts, expiration dates, usage limits |
-| Support Tickets | Complete | Multi-message ticket thread, category routing |
-| Notifications & WhatsApp | Complete | Database queue, retry logic, background CLI worker |
-| Financial Reports & Analytics | Complete | P&L, sales reports, product sales, inventory valuation, POS summaries |
-| System Settings & Backups | Complete | Dynamic business configuration, full automated SQL database dumps |
+Detailed documentation of all endpoints, request schemas, authentication requirements, and response structures:
+- **Markdown Reference:** `backend/docs/API.md`
+- **OpenAPI 3.0 Specification:** `backend/docs/openapi.json`
+- **XML Sitemap:** `GET /sitemap.php`

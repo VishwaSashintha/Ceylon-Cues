@@ -5,9 +5,11 @@ backend/storage/backups/*
 backend/storage/cache/*
 backend/public/uploads/products/*
 backend/public/uploads/payments/*
+backend/storage/uploads/payments/*
 !backend/public/uploads/products/.gitkeep
 !backend/public/uploads/payments/.gitkeep
 !backend/public/uploads/logo/.gitkeep
+!backend/storage/uploads/payments/.gitkeep
 !backend/storage/logs/.gitkeep
 !backend/storage/backups/.gitkeep
 !backend/storage/cache/.gitkeep

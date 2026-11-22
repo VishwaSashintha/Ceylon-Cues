@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace CeylonCues\Services\Settings;
 
 use CeylonCues\Core\Database;
+use PDO;
 use RuntimeException;
 
-/**
- * Database Backup & Recovery Service
- */
 final class BackupService
 {
     private string $backupDir;
@@ -22,62 +20,122 @@ final class BackupService
         }
     }
 
-    /**
-     * Create a SQL database dump.
-     */
     public function createBackup(): array
     {
         $db = Database::getInstance()->getConnection();
-        $tables = $db->query("SHOW TABLES")->fetchAll(\PDO::FETCH_COLUMN);
+        $tables = $db->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
 
-        $filename = 'ceylon_cues_backup_' . date('Y-m-d_His') . '.sql';
-        $filepath = $this->backupDir . DIRECTORY_SEPARATOR . $filename;
-
-        $handle = fopen($filepath, 'w');
-        if (!$handle) {
-            throw new RuntimeException("Could not open backup file for writing: {$filepath}");
-        }
-
-        fwrite($handle, "-- Ceylon Cues Database Backup\n");
-        fwrite($handle, "-- Generated: " . date('Y-m-d H:i:s') . "\n");
-        fwrite($handle, "SET FOREIGN_KEY_CHECKS=0;\n\n");
+        $sqlContent = "-- Ceylon Cues Database Backup\n";
+        $sqlContent .= "-- Generated: " . date('Y-m-d H:i:s') . "\n";
+        $sqlContent .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
 
         foreach ($tables as $table) {
-            // Table structure
             $createSql = $db->query("SHOW CREATE TABLE `{$table}`")->fetchColumn(1);
-            fwrite($handle, "DROP TABLE IF EXISTS `{$table}`;\n");
-            fwrite($handle, "{$createSql};\n\n");
+            $sqlContent .= "DROP TABLE IF EXISTS `{$table}`;\n";
+            $sqlContent .= "{$createSql};\n\n";
 
-            // Table rows
-            $rows = $db->query("SELECT * FROM `{$table}`")->fetchAll(\PDO::FETCH_ASSOC);
-            if (!empty($rows)) {
-                foreach ($rows as $row) {
-                    $cols = array_map(fn($col) => "`{$col}`", array_keys($row));
-                    $vals = array_map(function ($val) use ($db) {
-                        return $val === null ? 'NULL' : $db->quote((string)$val);
-                    }, array_values($row));
+            $rows = $db->query("SELECT * FROM `{$table}`")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $row) {
+                $cols = array_map(fn($col) => "`{$col}`", array_keys($row));
+                $vals = array_map(function ($val) use ($db) {
+                    return $val === null ? 'NULL' : $db->quote((string)$val);
+                }, array_values($row));
 
-                    $insertSql = sprintf(
-                        "INSERT INTO `%s` (%s) VALUES (%s);\n",
-                        $table,
-                        implode(', ', $cols),
-                        implode(', ', $vals)
-                    );
-                    fwrite($handle, $insertSql);
-                }
-                fwrite($handle, "\n");
+                $sqlContent .= sprintf(
+                    "INSERT INTO `%s` (%s) VALUES (%s);\n",
+                    $table,
+                    implode(', ', $cols),
+                    implode(', ', $vals)
+                );
+            }
+            $sqlContent .= "\n";
+        }
+
+        $sqlContent .= "SET FOREIGN_KEY_CHECKS=1;\n";
+
+        $key = hash('sha256', $_ENV['APP_KEY'] ?? 'changeme', true);
+        $iv = random_bytes(16);
+        $encrypted = openssl_encrypt($sqlContent, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+
+        if ($encrypted === false) {
+            throw new RuntimeException('Failed to encrypt backup.');
+        }
+
+        $filename = 'ceylon_cues_backup_' . date('Y-m-d_His') . '.sql.enc';
+        $filepath = $this->backupDir . DIRECTORY_SEPARATOR . $filename;
+
+        $written = file_put_contents($filepath, $iv . $encrypted);
+        if ($written === false) {
+            throw new RuntimeException("Could not write backup file: {$filepath}");
+        }
+
+        return [
+            'filename'   => $filename,
+            'file_path'  => $filepath,
+            'file_size'  => $written,
+            'tables'     => count($tables),
+            'created_at' => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    public function restoreBackup(string $filename): void
+    {
+        $filepath = $this->backupDir . DIRECTORY_SEPARATOR . basename($filename);
+
+        if (!file_exists($filepath)) {
+            throw new RuntimeException("Backup file not found: {$filename}");
+        }
+
+        $data = file_get_contents($filepath);
+        if ($data === false || strlen($data) <= 16) {
+            throw new RuntimeException('Backup file is empty or corrupt.');
+        }
+
+        $key = hash('sha256', $_ENV['APP_KEY'] ?? 'changeme', true);
+        $iv = substr($data, 0, 16);
+        $ciphertext = substr($data, 16);
+
+        $decrypted = openssl_decrypt($ciphertext, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        if ($decrypted === false) {
+            throw new RuntimeException('Failed to decrypt backup. Check APP_KEY.');
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $db->exec("SET FOREIGN_KEY_CHECKS=0;");
+
+        $statements = array_filter(
+            array_map('trim', explode(";\n", $decrypted)),
+            fn($s) => !empty($s) && !str_starts_with($s, '--')
+        );
+
+        foreach ($statements as $statement) {
+            if (!empty(trim($statement))) {
+                $db->exec($statement);
             }
         }
 
-        fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
-        fclose($handle);
+        $db->exec("SET FOREIGN_KEY_CHECKS=1;");
+    }
 
-        return [
-            'filename'  => $filename,
-            'file_path' => $filepath,
-            'file_size' => filesize($filepath),
-            'tables'    => count($tables),
-            'created_at'=> date('Y-m-d H:i:s'),
-        ];
+    public function purgeOldBackups(int $keepDays = 30): int
+    {
+        $cutoff = time() - ($keepDays * 86400);
+        $deleted = 0;
+
+        foreach (glob($this->backupDir . DIRECTORY_SEPARATOR . '*.sql.enc') ?: [] as $file) {
+            if (filemtime($file) < $cutoff) {
+                unlink($file);
+                $deleted++;
+            }
+        }
+
+        foreach (glob($this->backupDir . DIRECTORY_SEPARATOR . '*.sql') ?: [] as $file) {
+            if (filemtime($file) < $cutoff) {
+                unlink($file);
+                $deleted++;
+            }
+        }
+
+        return $deleted;
     }
 }

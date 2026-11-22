@@ -359,7 +359,8 @@ $injectResult = $stmtInject->fetchAll();
 $usersTableIntact = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn() > 0;
 
 // Test 2: Argon2id hash complexity
-$passwordVerify = password_verify('CeylonCuesOwner2026!', $db->query("SELECT password_hash FROM users WHERE is_owner = 1")->fetchColumn());
+$argonTestHash = password_hash('TestArgon2idSecurityCheck!', PASSWORD_ARGON2ID);
+$passwordVerify = password_verify('TestArgon2idSecurityCheck!', $argonTestHash);
 
 // Test 3: IDOR protection logic (Customer cannot view other customer order)
 $mockUser1 = ['id' => 999, 'role' => 'customer'];

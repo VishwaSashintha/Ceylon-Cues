@@ -90,4 +90,60 @@ final class ReportController
         $report = $this->reports->getPosReport($start, $end);
         Response::json($report, 'POS register audit report generated');
     }
+
+    public function exportSalesCsv(Request $request): void
+    {
+        $start = $request->getParam('start_date', date('Y-m-01'));
+        $end = $request->getParam('end_date', date('Y-m-d'));
+        $report = $this->reports->getSalesReport($start, $end);
+
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="sales_report_' . $start . '_to_' . $end . '.csv"');
+
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Period', 'Metric', 'Value']);
+        fputcsv($out, ['Date Range', 'Start to End', "{$start} to {$end}"]);
+        fputcsv($out, ['Summary', 'Total Orders', $report['summary']['total_orders'] ?? 0]);
+        fputcsv($out, ['Summary', 'Gross Sales', $report['summary']['gross_sales'] ?? 0]);
+        fputcsv($out, ['Summary', 'Total Discounts', $report['summary']['total_discounts'] ?? 0]);
+        fputcsv($out, ['Summary', 'Net Sales', $report['summary']['net_sales'] ?? 0]);
+
+        if (!empty($report['daily_breakdown'])) {
+            fputcsv($out, []);
+            fputcsv($out, ['Date', 'Orders', 'Revenue']);
+            foreach ($report['daily_breakdown'] as $day) {
+                fputcsv($out, [$day['date'] ?? '', $day['orders'] ?? 0, $day['revenue'] ?? 0]);
+            }
+        }
+
+        fclose($out);
+        exit;
+    }
+
+    public function exportInventoryCsv(Request $request): void
+    {
+        $report = $this->reports->getInventoryReport();
+
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="inventory_report_' . date('Y-m-d') . '.csv"');
+
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Location ID', 'Location Name', 'Type', 'Total SKUs', 'Total Quantity', 'Reserved Quantity', 'Cost Valuation', 'Retail Valuation']);
+
+        foreach ($report['by_location'] ?? [] as $loc) {
+            fputcsv($out, [
+                $loc['id'] ?? '',
+                $loc['name'] ?? '',
+                $loc['type'] ?? '',
+                $loc['total_skus'] ?? 0,
+                $loc['total_quantity'] ?? 0,
+                $loc['total_reserved'] ?? 0,
+                $loc['cost_valuation'] ?? 0,
+                $loc['retail_valuation'] ?? 0,
+            ]);
+        }
+
+        fclose($out);
+        exit;
+    }
 }

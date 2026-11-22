@@ -87,4 +87,80 @@ final class SupplierController
         $history = $this->supplierService->getSupplierPurchaseHistory($id);
         Response::json($history, 'Supplier purchase history retrieved');
     }
+
+    public function recordPayment(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, [
+            'amount'         => 'required|numeric',
+            'payment_method' => 'required|in:bank_transfer,cheque,cash',
+            'payment_date'   => 'required|string',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $payment = $this->supplierService->recordPayment(
+                $id,
+                (float)$data['amount'],
+                $data['payment_method'],
+                $data['payment_date'],
+                !empty($data['purchase_order_id']) ? (int)$data['purchase_order_id'] : null,
+                $data['payment_reference'] ?? null,
+                $data['notes'] ?? null,
+                $user ? (int)$user['id'] : null
+            );
+            Response::created($payment, 'Supplier payment recorded successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function listPayments(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $payments = $this->supplierService->listPayments($id);
+        Response::json($payments, 'Supplier payments retrieved');
+    }
+
+    public function recordReturn(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, [
+            'location_id' => 'required|integer',
+            'reason'      => 'required|string',
+            'items'       => 'required|array',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $return = $this->supplierService->recordPurchaseReturn(
+                $id,
+                (int)$data['location_id'],
+                $data['reason'],
+                $data['items'],
+                !empty($data['purchase_order_id']) ? (int)$data['purchase_order_id'] : null,
+                $user ? (int)$user['id'] : null
+            );
+            Response::created($return, 'Purchase return to supplier created successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function listReturns(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $returns = $this->supplierService->listPurchaseReturns($id);
+        Response::json($returns, 'Supplier purchase returns retrieved');
+    }
 }

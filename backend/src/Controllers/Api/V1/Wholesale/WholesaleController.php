@@ -100,4 +100,61 @@ final class WholesaleController
         $this->wholesale->setPriceTier($pid, (int)$data['min_quantity'], (float)$data['price']);
         Response::json(null, 'Wholesale pricing tier saved');
     }
+
+    /**
+     * POST /api/v1/wholesale/enquiries/{id}/approve (ERP)
+     */
+    public function approve(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, [
+            'credit_limit'       => 'required|numeric',
+            'payment_terms_days' => 'required|integer',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $updated = $this->wholesale->approveWholesaleEnquiry(
+                $id,
+                (float)$data['credit_limit'],
+                (int)$data['payment_terms_days'],
+                (int)$user['id']
+            );
+            Response::json($updated, 'Wholesale enquiry approved and credit terms activated');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * GET /api/v1/wholesale/customers/{id}/statement (ERP / Customer)
+     */
+    public function statement(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        $isStaff = in_array($user['role'] ?? '', ['owner', 'shop_manager', 'finance_staff'], true);
+        $isSelf = (int)$user['id'] === $id;
+        if (!$isStaff && !$isSelf) {
+            Response::forbidden();
+        }
+
+        try {
+            $from = $request->getParam('from_date');
+            $to = $request->getParam('to_date');
+            $statement = $this->wholesale->getCustomerStatement($id, $from, $to);
+            Response::json($statement, 'Wholesale account statement retrieved');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }

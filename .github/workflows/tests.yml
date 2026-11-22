@@ -1,0 +1,62 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ceylon_cues_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, mbstring, openssl
+          coverage: none
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Create .env for testing
+        working-directory: backend
+        run: |
+          cat > .env <<EOF
+          APP_NAME=CeylonCues
+          APP_ENV=testing
+          APP_DEBUG=true
+          APP_KEY=test-key-32-chars-padded-securely
+          APP_URL=http://localhost
+          APP_TIMEZONE=Asia/Colombo
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_DATABASE=ceylon_cues_test
+          DB_USERNAME=root
+          DB_PASSWORD=root
+          WEBHOOK_SECRET=test-webhook-secret
+          ALLOWED_ORIGINS=http://localhost
+          EOF
+
+      - name: Run Unit Tests
+        working-directory: backend
+        run: vendor/bin/phpunit --testsuite Unit --no-coverage

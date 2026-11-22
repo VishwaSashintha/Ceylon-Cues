@@ -109,7 +109,8 @@ final class AuthService
 
         // Find user by email
         $stmt = $this->db->prepare(
-            'SELECT id, uuid, first_name, last_name, email, phone, password_hash, role, is_owner, is_active, created_at
+            'SELECT id, uuid, first_name, last_name, email, phone, password_hash, role, is_owner, is_active,
+                    two_factor_enabled, created_at
              FROM users WHERE email = :email LIMIT 1'
         );
         $stmt->execute([':email' => $email]);
@@ -142,6 +143,37 @@ final class AuthService
             ]);
             $this->db->prepare('UPDATE users SET password_hash = :hash WHERE id = :id')
                 ->execute([':hash' => $newHash, ':id' => $user['id']]);
+        }
+
+        // If 2FA is enabled, issue a short-lived temp token instead of a session
+        if (!empty($user['two_factor_enabled'])) {
+            $this->db->exec("
+                CREATE TABLE IF NOT EXISTS temp_2fa_tokens (
+                    id         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    user_id    INT UNSIGNED NOT NULL,
+                    token      VARCHAR(64)  NOT NULL,
+                    expires_at DATETIME     NOT NULL,
+                    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_token (token),
+                    INDEX idx_user  (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ");
+
+            $tempToken = bin2hex(random_bytes(16));
+            $expiresAt = date('Y-m-d H:i:s', time() + 300); // 5 minutes
+
+            $this->db->prepare(
+                'INSERT INTO temp_2fa_tokens (user_id, token, expires_at) VALUES (:uid, :tok, :exp)'
+            )->execute([
+                ':uid' => $user['id'],
+                ':tok' => $tempToken,
+                ':exp' => $expiresAt,
+            ]);
+
+            return [
+                'requires_2fa' => true,
+                'temp_token'   => $tempToken,
+            ];
         }
 
         // Create session token
@@ -485,6 +517,203 @@ final class AuthService
                 'DELETE FROM login_attempts WHERE email = :email AND success = 0'
             )->execute([':email' => $email]);
         }
+    }
+
+    public function logoutAll(int $userId): int
+    {
+        $stmt = $this->db->prepare('DELETE FROM sessions WHERE user_id = :user_id');
+        $stmt->execute([':user_id' => $userId]);
+
+        return $stmt->rowCount();
+    }
+
+    public function setup2fa(int $userId): array
+    {
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS temp_2fa_tokens (
+                id         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                user_id    INT UNSIGNED NOT NULL,
+                token      VARCHAR(64)  NOT NULL,
+                expires_at DATETIME     NOT NULL,
+                created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_token (token),
+                INDEX idx_user  (user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+
+        $totp   = new TotpService();
+        $secret = $totp->generateSecret();
+
+        $stmt = $this->db->prepare(
+            'SELECT email FROM users WHERE id = :id LIMIT 1'
+        );
+        $stmt->execute([':id' => $userId]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            throw new RuntimeException('User not found.');
+        }
+
+        $this->db->prepare(
+            'UPDATE users SET two_factor_secret = :secret, updated_at = NOW() WHERE id = :id'
+        )->execute([':secret' => $secret, ':id' => $userId]);
+
+        return [
+            'secret' => $secret,
+            'qr_uri' => $totp->generateQrCodeUri($secret, $user['email']),
+        ];
+    }
+
+    public function enable2fa(int $userId, string $code): void
+    {
+        $stmt = $this->db->prepare(
+            'SELECT two_factor_secret FROM users WHERE id = :id LIMIT 1'
+        );
+        $stmt->execute([':id' => $userId]);
+        $user = $stmt->fetch();
+
+        if (!$user || empty($user['two_factor_secret'])) {
+            throw new RuntimeException('2FA setup not initiated.');
+        }
+
+        $totp = new TotpService();
+        if (!$totp->verify($user['two_factor_secret'], $code)) {
+            throw new RuntimeException('Invalid TOTP code.');
+        }
+
+        $this->db->prepare(
+            'UPDATE users SET two_factor_enabled = 1, two_factor_confirmed_at = NOW(), updated_at = NOW() WHERE id = :id'
+        )->execute([':id' => $userId]);
+    }
+
+    public function verify2fa(int $userId, string $code): bool
+    {
+        $stmt = $this->db->prepare(
+            'SELECT two_factor_secret FROM users WHERE id = :id AND two_factor_enabled = 1 LIMIT 1'
+        );
+        $stmt->execute([':id' => $userId]);
+        $user = $stmt->fetch();
+
+        if (!$user || empty($user['two_factor_secret'])) {
+            return false;
+        }
+
+        return (new TotpService())->verify($user['two_factor_secret'], $code);
+    }
+
+    public function disable2fa(int $userId, string $code): void
+    {
+        $stmt = $this->db->prepare(
+            'SELECT two_factor_secret FROM users WHERE id = :id AND two_factor_enabled = 1 LIMIT 1'
+        );
+        $stmt->execute([':id' => $userId]);
+        $user = $stmt->fetch();
+
+        if (!$user || empty($user['two_factor_secret'])) {
+            throw new RuntimeException('2FA is not enabled.');
+        }
+
+        if (!(new TotpService())->verify($user['two_factor_secret'], $code)) {
+            throw new RuntimeException('Invalid TOTP code.');
+        }
+
+        $this->db->prepare(
+            'UPDATE users
+             SET two_factor_enabled = 0, two_factor_secret = NULL, two_factor_confirmed_at = NULL, updated_at = NOW()
+             WHERE id = :id'
+        )->execute([':id' => $userId]);
+    }
+
+    public function loginWith2fa(string $tempToken, string $totpCode): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT user_id FROM temp_2fa_tokens WHERE token = :token AND expires_at > NOW() LIMIT 1'
+        );
+        $stmt->execute([':token' => $tempToken]);
+        $row = $stmt->fetch();
+
+        if (!$row) {
+            throw new RuntimeException('Invalid or expired 2FA token.');
+        }
+
+        $userId = (int) $row['user_id'];
+
+        $this->db->prepare('DELETE FROM temp_2fa_tokens WHERE token = :token')
+            ->execute([':token' => $tempToken]);
+
+        if (!$this->verify2fa($userId, $totpCode)) {
+            throw new RuntimeException('Invalid TOTP code.');
+        }
+
+        $token     = bin2hex(random_bytes(32));
+        $expiresAt = date('Y-m-d H:i:s', time() + ($this->sessionLifetime * 60));
+
+        $ip        = $_SERVER['HTTP_X_FORWARDED_FOR']
+            ?? $_SERVER['HTTP_X_REAL_IP']
+            ?? $_SERVER['REMOTE_ADDR']
+            ?? '0.0.0.0';
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+
+        $this->db->prepare(
+            'INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at, created_at)
+             VALUES (:user_id, :token, :ip, :user_agent, :expires_at, NOW())'
+        )->execute([
+            ':user_id'    => $userId,
+            ':token'      => hash('sha256', $token),
+            ':ip'         => $ip,
+            ':user_agent' => substr($userAgent, 0, 512),
+            ':expires_at' => $expiresAt,
+        ]);
+
+        $this->db->prepare('UPDATE users SET last_login_at = NOW() WHERE id = :id')
+            ->execute([':id' => $userId]);
+
+        return [
+            'user'  => $this->getUserById($userId),
+            'token' => $token,
+        ];
+    }
+
+    public function verifyEmail(string $token): void
+    {
+        $stmt = $this->db->prepare(
+            'SELECT id FROM users WHERE email_verification_token = :token LIMIT 1'
+        );
+        $stmt->execute([':token' => $token]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            throw new RuntimeException('Invalid or already-used verification token.');
+        }
+
+        $this->db->prepare(
+            'UPDATE users SET email_verified_at = NOW(), email_verification_token = NULL, updated_at = NOW()
+             WHERE id = :id'
+        )->execute([':id' => $user['id']]);
+    }
+
+    public function sendEmailVerification(int $userId): void
+    {
+        $stmt = $this->db->prepare('SELECT email FROM users WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $userId]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            throw new RuntimeException('User not found.');
+        }
+
+        $token = bin2hex(random_bytes(24));
+
+        $this->db->prepare(
+            'UPDATE users SET email_verification_token = :token, updated_at = NOW() WHERE id = :id'
+        )->execute([':token' => $token, ':id' => $userId]);
+
+        error_log(sprintf(
+            '[CeylonCues] Email verification token for %s (user #%d): %s',
+            $user['email'],
+            $userId,
+            $token,
+        ));
     }
 
     /**

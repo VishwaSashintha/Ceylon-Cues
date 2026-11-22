@@ -90,4 +90,105 @@ final class WholesaleService
         $stmt->execute([':pid' => $productId]);
         return $stmt->fetchAll();
     }
+
+    public function approveWholesaleEnquiry(
+        int $enquiryId,
+        float $creditLimit,
+        int $paymentTermsDays,
+        int $approvedByUserId
+    ): array {
+        $enquiry = $this->getEnquiry($enquiryId);
+        if (!$enquiry) {
+            throw new RuntimeException("Wholesale enquiry #{$enquiryId} not found.");
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare("
+                UPDATE wholesale_enquiries
+                SET status = 'approved', approved_by = :approver, updated_at = NOW()
+                WHERE id = :id
+            ")->execute([':approver' => $approvedByUserId, ':id' => $enquiryId]);
+
+            if (!empty($enquiry['user_id'])) {
+                $this->db->prepare("
+                    UPDATE users
+                    SET credit_limit = :credit, payment_terms_days = :terms, updated_at = NOW()
+                    WHERE id = :uid
+                ")->execute([
+                    ':credit' => $creditLimit,
+                    ':terms'  => $paymentTermsDays,
+                    ':uid'    => (int)$enquiry['user_id'],
+                ]);
+            }
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+
+        return $this->getEnquiry($enquiryId);
+    }
+
+    public function getCustomerStatement(
+        int $customerId,
+        ?string $fromDate = null,
+        ?string $toDate = null
+    ): array {
+        $where  = ['o.user_id = :cid', "o.channel = 'wholesale'"];
+        $params = [':cid' => $customerId];
+
+        if ($fromDate !== null) {
+            $where[]          = 'DATE(o.created_at) >= :from';
+            $params[':from']  = $fromDate;
+        }
+        if ($toDate !== null) {
+            $where[]        = 'DATE(o.created_at) <= :to';
+            $params[':to']  = $toDate;
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        $orders = $this->db->prepare("
+            SELECT o.id, o.reference_number, o.status, o.payment_status,
+                   o.total_amount, o.created_at
+            FROM orders o
+            WHERE {$whereClause}
+            ORDER BY o.created_at DESC
+        ");
+        $orders->execute($params);
+        $orderRows = $orders->fetchAll();
+
+        $paymentsStmt = $this->db->prepare("
+            SELECT p.id, p.order_id, p.amount, p.status, p.payment_method, p.paid_at, p.created_at
+            FROM payments p
+            JOIN orders o ON o.id = p.order_id
+            WHERE o.user_id = :cid AND o.channel = 'wholesale'
+            ORDER BY p.created_at DESC
+        ");
+        $paymentsStmt->execute([':cid' => $customerId]);
+        $payments = $paymentsStmt->fetchAll();
+
+        $totalInvoiced = array_sum(array_column($orderRows, 'total_amount'));
+        $totalPaid     = array_sum(
+            array_map(
+                fn($p) => $p['status'] === 'paid' ? (float)$p['amount'] : 0.0,
+                $payments
+            )
+        );
+
+        return [
+            'customer_id'        => $customerId,
+            'from_date'          => $fromDate,
+            'to_date'            => $toDate,
+            'orders'             => $orderRows,
+            'payments'           => $payments,
+            'total_invoiced'     => round($totalInvoiced, 2),
+            'total_paid'         => round($totalPaid, 2),
+            'outstanding_balance' => round($totalInvoiced - $totalPaid, 2),
+        ];
+    }
 }

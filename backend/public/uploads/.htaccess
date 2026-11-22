@@ -1,0 +1,6 @@
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|php3|php4|php5|phps|phar|cgi)$">
+    Require all denied
+</FilesMatch>
+AddHandler cgi-script .php .phtml .php3 .php4 .php5 .phps .phar
+Options -ExecCGI

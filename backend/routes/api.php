@@ -18,11 +18,14 @@ use CeylonCues\Controllers\Api\V1\Marketing\MarketingController;
 use CeylonCues\Controllers\Api\V1\Notifications\NotificationController;
 use CeylonCues\Controllers\Api\V1\Orders\OrderController;
 use CeylonCues\Controllers\Api\V1\Orders\ReturnController;
+use CeylonCues\Controllers\Api\V1\Payments\CodController;
 use CeylonCues\Controllers\Api\V1\Payments\PaymentController;
 use CeylonCues\Controllers\Api\V1\Pos\PosController;
 use CeylonCues\Controllers\Api\V1\Products\ProductController;
+use CeylonCues\Controllers\Api\V1\Products\WishlistController;
 use CeylonCues\Controllers\Api\V1\Purchasing\PurchaseOrderController;
 use CeylonCues\Controllers\Api\V1\Reports\ReportController;
+use CeylonCues\Controllers\Api\V1\Settings\CmsController;
 use CeylonCues\Controllers\Api\V1\Settings\SettingController;
 use CeylonCues\Controllers\Api\V1\Suppliers\SupplierController;
 use CeylonCues\Controllers\Api\V1\Support\SupportController;
@@ -31,6 +34,7 @@ use CeylonCues\Middleware\AuthMiddleware;
 use CeylonCues\Middleware\CorsMiddleware;
 use CeylonCues\Middleware\JsonBodyMiddleware;
 use CeylonCues\Middleware\RoleMiddleware;
+use CeylonCues\Middleware\SecurityHeadersMiddleware;
 
 /** @var \CeylonCues\Core\Router $router */
 
@@ -38,14 +42,17 @@ $router->group('/api/v1', function ($router) {
 
     // Public Authentication & Identity
     $router->post('/auth/login', [AuthController::class, 'login']);
+    $router->post('/auth/2fa/verify', [AuthController::class, 'verify2faLogin']);
     $router->post('/auth/register', [AuthController::class, 'register']);
     $router->post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
     $router->post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+    $router->post('/auth/verify-email', [AuthController::class, 'verifyEmail']);
     $router->post('/auth/csrf-token', [AuthController::class, 'csrfToken']);
 
-    // Public Storefront Catalog & Settings
+    // Public Storefront Catalog, Content & Settings
     $router->get('/products', [ProductController::class, 'index']);
     $router->get('/products/{id}', [ProductController::class, 'show']);
+    $router->post('/products/{id}/notify-stock', [WishlistController::class, 'notifyStock']);
     $router->get('/categories', [CategoryController::class, 'index']);
     $router->get('/categories/{id}', [CategoryController::class, 'show']);
     $router->get('/delivery/zones', [DeliveryController::class, 'zones']);
@@ -53,6 +60,11 @@ $router->group('/api/v1', function ($router) {
     $router->get('/settings/public', [SettingController::class, 'getPublic']);
     $router->post('/wholesale/enquiry', [WholesaleController::class, 'submitEnquiry']);
     $router->post('/marketing/validate-coupon', [MarketingController::class, 'validateCoupon']);
+
+    // Public CMS Pages & Order Tracking
+    $router->get('/cms/pages', [CmsController::class, 'index']);
+    $router->get('/cms/pages/{slug}', [CmsController::class, 'show']);
+    $router->get('/orders/track', [OrderController::class, 'publicTrack']);
 
     // Shopping Cart & Checkout
     $router->get('/cart', [CartController::class, 'show']);
@@ -65,16 +77,38 @@ $router->group('/api/v1', function ($router) {
     $router->post('/checkout/place-order', [CheckoutController::class, 'placeOrder']);
     $router->post('/payments/bank-transfer/submit', [PaymentController::class, 'submitBankTransfer']);
 
-    // Authenticated User Routes
+    // Authenticated User Routes (Customers & Staff)
     $router->group('', function ($router) {
         $router->get('/auth/me', [AuthController::class, 'me']);
         $router->put('/auth/profile', [AuthController::class, 'updateProfile']);
         $router->post('/auth/change-password', [AuthController::class, 'changePassword']);
         $router->post('/auth/logout', [AuthController::class, 'logout']);
+        $router->post('/auth/logout-all', [AuthController::class, 'logoutAll']);
+        $router->post('/auth/2fa/setup', [AuthController::class, 'setup2fa']);
+        $router->post('/auth/2fa/enable', [AuthController::class, 'enable2fa']);
+        $router->post('/auth/2fa/disable', [AuthController::class, 'disable2fa']);
+        $router->post('/auth/resend-verification', [AuthController::class, 'resendVerification']);
 
-        // Order history
+        // Customer Wishlist
+        $router->get('/wishlist', [WishlistController::class, 'index']);
+        $router->post('/wishlist', [WishlistController::class, 'add']);
+        $router->delete('/wishlist/{id}', [WishlistController::class, 'remove']);
+
+        // Order history, tax invoice and invoice download
         $router->get('/orders', [OrderController::class, 'index']);
         $router->get('/orders/{id}', [OrderController::class, 'show']);
+        $router->get('/orders/{id}/tax-invoice', [OrderController::class, 'taxInvoice']);
+        $router->get('/orders/{id}/invoice', [OrderController::class, 'downloadInvoice']);
+
+        // Private bank transfer slip proof download
+        $router->get('/payments/bank-transfers/{id}/proof', [PaymentController::class, 'getProof']);
+
+        // Customer PDPA data export & erasure
+        $router->get('/customers/{id}/export-data', [CustomerController::class, 'exportData']);
+        $router->post('/customers/{id}/erase-data', [CustomerController::class, 'eraseData']);
+
+        // Customer Wholesale statement
+        $router->get('/wholesale/customers/{id}/statement', [WholesaleController::class, 'statement']);
 
         // Returns submission
         $router->post('/returns', [ReturnController::class, 'store']);
@@ -92,9 +126,13 @@ $router->group('/api/v1', function ($router) {
         $router->get('/sessions/{id}', [PosController::class, 'showSession']);
         $router->post('/sessions/open', [PosController::class, 'openSession']);
         $router->post('/sessions/{id}/close', [PosController::class, 'closeSession']);
+        $router->get('/sessions/{id}/float', [PosController::class, 'showFloat']);
+        $router->post('/sessions/{id}/cash-movement', [PosController::class, 'cashMovement']);
         $router->get('/transactions', [PosController::class, 'listTransactions']);
         $router->get('/transactions/{id}', [PosController::class, 'showTransaction']);
         $router->post('/sales', [PosController::class, 'processSale']);
+        $router->post('/sync-offline', [PosController::class, 'syncOffline']);
+        $router->post('/verify-pin', [PosController::class, 'verifyPin']);
         $router->get('/daily-summary', [PosController::class, 'dailySummary']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager', 'shop_cashier']]]);
 
@@ -105,11 +143,13 @@ $router->group('/api/v1', function ($router) {
         $router->post('/expenses', [ExpenseController::class, 'store']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager', 'warehouse_manager', 'finance_staff']]]);
 
-    // ERP Products & Categories CRUD
+    // ERP Products & Categories CRUD + CSV Import/Export
     $router->group('', function ($router) {
         $router->post('/products', [ProductController::class, 'store']);
         $router->put('/products/{id}', [ProductController::class, 'update']);
         $router->delete('/products/{id}', [ProductController::class, 'destroy']);
+        $router->post('/products/import', [ProductController::class, 'importCsv']);
+        $router->get('/products/export', [ProductController::class, 'exportCsv']);
         $router->post('/products/{id}/images', [ProductController::class, 'uploadImage']);
         $router->delete('/products/images/{id}', [ProductController::class, 'destroyImage']);
 
@@ -138,7 +178,7 @@ $router->group('/api/v1', function ($router) {
         $router->post('/counts/{id}/reconcile', [InventoryController::class, 'reconcileCount']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager', 'warehouse_manager', 'inventory_staff']]]);
 
-    // ERP Suppliers Management
+    // ERP Suppliers Management & Ledger
     $router->group('/suppliers', function ($router) {
         $router->get('', [SupplierController::class, 'index']);
         $router->post('', [SupplierController::class, 'store']);
@@ -146,6 +186,10 @@ $router->group('/api/v1', function ($router) {
         $router->put('/{id}', [SupplierController::class, 'update']);
         $router->delete('/{id}', [SupplierController::class, 'destroy']);
         $router->get('/{id}/history', [SupplierController::class, 'purchaseHistory']);
+        $router->get('/{id}/payments', [SupplierController::class, 'listPayments']);
+        $router->post('/{id}/payments', [SupplierController::class, 'recordPayment']);
+        $router->get('/{id}/returns', [SupplierController::class, 'listReturns']);
+        $router->post('/{id}/returns', [SupplierController::class, 'recordReturn']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager', 'warehouse_manager']]]);
 
     // ERP Purchasing & Goods Receipts
@@ -189,11 +233,14 @@ $router->group('/api/v1', function ($router) {
         $router->delete('/{id}', [DeliveryController::class, 'destroyZone']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager']]]);
 
-    // ERP Payments, Bank Transfer Verification & Refunds
+    // ERP Payments, Bank Transfer Verification, Refunds & COD Remittances
     $router->group('/payments', function ($router) {
         $router->get('/bank-transfers/pending', [PaymentController::class, 'listPending']);
         $router->post('/bank-transfers/{id}/verify', [PaymentController::class, 'verifyBankTransfer']);
         $router->post('/refunds', [PaymentController::class, 'refund']);
+        $router->get('/cod-remittances', [CodController::class, 'index']);
+        $router->post('/cod-remittances', [CodController::class, 'store']);
+        $router->get('/cod-remittances/{id}', [CodController::class, 'show']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'finance_staff']]]);
 
     // ERP Marketing & Wholesale
@@ -202,17 +249,20 @@ $router->group('/api/v1', function ($router) {
         $router->post('/marketing/discounts', [MarketingController::class, 'store']);
 
         $router->get('/wholesale/enquiries', [WholesaleController::class, 'listEnquiries']);
+        $router->post('/wholesale/enquiries/{id}/approve', [WholesaleController::class, 'approve']);
         $router->get('/wholesale/pricing-tiers/{id}', [WholesaleController::class, 'tiers']);
         $router->post('/wholesale/pricing-tiers/{id}', [WholesaleController::class, 'setTier']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager']]]);
 
-    // ERP Financial & Operational Reports
+    // ERP Financial & Operational Reports + CSV Export
     $router->group('/reports', function ($router) {
         $router->get('/executive-metrics', [ReportController::class, 'metrics']);
         $router->get('/profit-and-loss', [ReportController::class, 'profitAndLoss']);
         $router->get('/sales', [ReportController::class, 'sales']);
+        $router->get('/sales/export', [ReportController::class, 'exportSalesCsv']);
         $router->get('/products', [ReportController::class, 'productSales']);
         $router->get('/inventory', [ReportController::class, 'inventory']);
+        $router->get('/inventory/export', [ReportController::class, 'exportInventoryCsv']);
         $router->get('/purchases', [ReportController::class, 'purchases']);
         $router->get('/customers', [ReportController::class, 'customers']);
         $router->get('/pos', [ReportController::class, 'pos']);
@@ -224,7 +274,7 @@ $router->group('/api/v1', function ($router) {
         $router->post('/test', [NotificationController::class, 'testAlert']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner']]]);
 
-    // Owner-Only Administration
+    // Owner-Only Administration & CMS
     $router->group('', function ($router) {
         // Employee Management
         $router->get('/employees', [EmployeeController::class, 'index']);
@@ -238,6 +288,11 @@ $router->group('/api/v1', function ($router) {
         $router->get('/settings', [SettingController::class, 'index']);
         $router->put('/settings', [SettingController::class, 'update']);
         $router->post('/settings/backup', [SettingController::class, 'createBackup']);
+
+        // CMS Content Management
+        $router->post('/cms/pages', [CmsController::class, 'store']);
+        $router->put('/cms/pages/{id}', [CmsController::class, 'update']);
+        $router->delete('/cms/pages/{id}', [CmsController::class, 'destroy']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner']]]);
 
-}, [CorsMiddleware::class, JsonBodyMiddleware::class]);
+}, [SecurityHeadersMiddleware::class, CorsMiddleware::class, JsonBodyMiddleware::class]);

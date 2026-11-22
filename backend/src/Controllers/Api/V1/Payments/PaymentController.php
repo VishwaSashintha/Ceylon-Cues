@@ -138,4 +138,30 @@ final class PaymentController
             Response::error($e->getMessage(), 400);
         }
     }
+
+    /**
+     * GET /api/v1/payments/bank-transfers/{id}/proof (Customer Owner or ERP Finance/Owner)
+     */
+    public function getProof(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        $user = $request->getUser();
+        if (!$user) {
+            Response::unauthorized();
+        }
+
+        try {
+            $filePath = $this->payments->getProofFilePath($id, (int)$user['id'], $user['role']);
+            $mime = mime_content_type($filePath) ?: 'application/octet-stream';
+
+            header('Content-Type: ' . $mime);
+            header('Content-Length: ' . filesize($filePath));
+            header('Content-Disposition: inline; filename="' . basename($filePath) . '"');
+            header('X-Content-Type-Options: nosniff');
+            readfile($filePath);
+            exit;
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 403);
+        }
+    }
 }

@@ -179,4 +179,114 @@ final class CustomerService
 
         return $this->getAddresses($userId);
     }
+
+    public function exportCustomerData(int $customerId): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT id, uuid, email, phone, first_name, last_name, role, is_active,
+                   email_verified_at, last_login_at, created_at
+            FROM users WHERE id = :id LIMIT 1
+        ");
+        $stmt->execute([':id' => $customerId]);
+        $profile = $stmt->fetch();
+
+        if (!$profile) {
+            throw new RuntimeException("Customer #{$customerId} not found.");
+        }
+
+        $addresses = $this->db->prepare("SELECT * FROM customer_addresses WHERE user_id = :uid")
+            ->execute([':uid' => $customerId]) ? null : null;
+        $addrStmt = $this->db->prepare("SELECT * FROM customer_addresses WHERE user_id = :uid");
+        $addrStmt->execute([':uid' => $customerId]);
+
+        $ordersStmt = $this->db->prepare("
+            SELECT o.*, GROUP_CONCAT(oi.product_name_snapshot ORDER BY oi.id SEPARATOR ', ') as items_summary
+            FROM orders o
+            LEFT JOIN order_items oi ON oi.order_id = o.id
+            WHERE o.user_id = :uid
+            GROUP BY o.id
+            ORDER BY o.created_at DESC
+        ");
+        $ordersStmt->execute([':uid' => $customerId]);
+
+        $ticketsStmt = $this->db->prepare("SELECT * FROM support_tickets WHERE user_id = :uid ORDER BY created_at DESC");
+        $ticketsStmt->execute([':uid' => $customerId]);
+
+        $notifStmt = $this->db->prepare("SELECT * FROM notifications WHERE user_id = :uid ORDER BY created_at DESC LIMIT 100");
+        $notifStmt->execute([':uid' => $customerId]);
+
+        $loginStmt = $this->db->prepare("SELECT * FROM login_attempts WHERE email = :email ORDER BY created_at DESC LIMIT 50");
+        $loginStmt->execute([':email' => $profile['email']]);
+
+        return [
+            'profile'        => $profile,
+            'addresses'      => $addrStmt->fetchAll(),
+            'orders'         => $ordersStmt->fetchAll(),
+            'support_tickets' => $ticketsStmt->fetchAll(),
+            'notifications'  => $notifStmt->fetchAll(),
+            'login_attempts' => $loginStmt->fetchAll(),
+            'exported_at'    => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    public function eraseCustomerData(int $customerId, int $requestedByUserId): void
+    {
+        if ($customerId !== $requestedByUserId) {
+            $stmt = $this->db->prepare("SELECT role FROM users WHERE id = :id LIMIT 1");
+            $stmt->execute([':id' => $requestedByUserId]);
+            $requester = $stmt->fetch();
+            if (!$requester || !in_array($requester['role'], ['admin', 'super_admin'], true)) {
+                throw new RuntimeException('Only the account owner or an administrator may erase customer data.');
+            }
+        }
+
+        $customer = $this->db->prepare("SELECT id, email FROM users WHERE id = :id LIMIT 1");
+        $customer->execute([':id' => $customerId]);
+        $user = $customer->fetch();
+
+        if (!$user) {
+            throw new RuntimeException("Customer #{$customerId} not found.");
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare("
+                UPDATE users
+                SET first_name   = '[Deleted]',
+                    last_name    = '[Deleted]',
+                    email        = CONCAT('deleted_', id, '@removed.invalid'),
+                    phone        = '[Deleted]',
+                    is_active    = 0,
+                    updated_at   = NOW()
+                WHERE id = :id
+            ")->execute([':id' => $customerId]);
+
+            $this->db->prepare("DELETE FROM customer_addresses WHERE user_id = :uid")->execute([':uid' => $customerId]);
+
+            $this->db->prepare("DELETE FROM carts WHERE user_id = :uid")->execute([':uid' => $customerId]);
+
+            $this->db->prepare("DELETE FROM sessions WHERE user_id = :uid")->execute([':uid' => $customerId]);
+
+            $this->db->prepare("
+                INSERT INTO audit_logs
+                    (user_id, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent)
+                VALUES
+                    (:by, 'customer_data_erased', 'users', :eid, :old, :new, :ip, :ua)
+            ")->execute([
+                ':by'  => $requestedByUserId,
+                ':eid' => $customerId,
+                ':old' => json_encode(['email' => $user['email']], JSON_UNESCAPED_UNICODE),
+                ':new' => json_encode(['email' => 'deleted_' . $customerId . '@removed.invalid', 'anonymised' => true]),
+                ':ip'  => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
+                ':ua'  => substr($_SERVER['HTTP_USER_AGENT'] ?? 'cli', 0, 500),
+            ]);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CeylonCues\Services\Payments\Adapters;
 
 use CeylonCues\Services\Payments\PaymentGatewayInterface;
+use RuntimeException;
 
 /**
  * KOKO Pay Buy-Now-Pay-Later Adapter (Sri Lanka)
@@ -20,10 +21,10 @@ final class KokoAdapter implements PaymentGatewayInterface
     {
         $txId = 'KOKO-' . strtoupper(bin2hex(random_bytes(8)));
         return [
-            'status'                 => 'completed',
-            'provider'               => 'KOKO_PAY',
-            'provider_transaction_id'=> $txId,
-            'message'                => 'KOKO BNPL installment payment approved in sandbox mode',
+            'status'                  => 'completed',
+            'provider'                => 'KOKO_PAY',
+            'provider_transaction_id' => $txId,
+            'message'                 => 'KOKO BNPL installment payment approved in sandbox mode',
         ];
     }
 
@@ -36,4 +37,26 @@ final class KokoAdapter implements PaymentGatewayInterface
     {
         return ['success' => true, 'refund_id' => 'RFD-KOKO-' . bin2hex(random_bytes(4)), 'amount' => $amount];
     }
+
+    public function handleWebhook(): array
+    {
+        $rawBody = file_get_contents('php://input');
+        $rawBody = $rawBody === false ? '' : $rawBody;
+
+        $signature = $_SERVER['HTTP_X_WEBHOOK_SIGNATURE']
+            ?? $_SERVER['HTTP_X_KOKO_SIGNATURE']
+            ?? '';
+
+        $secret   = $_ENV['WEBHOOK_SECRET'] ?? '';
+        $expected = hash_hmac('sha256', $rawBody, $secret);
+
+        if (!hash_equals($expected, $signature)) {
+            throw new RuntimeException('Invalid webhook signature');
+        }
+
+        $payload = json_decode($rawBody, true);
+
+        return is_array($payload) ? $payload : [];
+    }
 }
+
