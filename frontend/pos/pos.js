@@ -61,6 +61,8 @@
   }
 
   function bindLoginForm() {
+    const info = document.getElementById('pos-access-info');
+    if (info) info.style.display = 'block';
     const form = document.getElementById('pos-login-form');
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -68,9 +70,22 @@
         const email = document.getElementById('pos-login-email').value;
         const pass = document.getElementById('pos-login-password').value;
         const result = await CeylonAPI.login(email, pass);
-        if (!CeylonAPI.isStaff()) {
+        if (!CeylonAPI.isPosAuthorized()) {
           CeylonAPI.logout();
-          showError('Access denied: customer accounts cannot access the POS.');
+          const card = document.querySelector('.session-card');
+          if (card) {
+            card.innerHTML = `
+              <div style="text-align:center;">
+                <div style="font-size:1.3rem;font-weight:800;color:#fff;margin-bottom:0.75rem;">Access Denied</div>
+                <div style="color:#9b6b6b;font-size:0.9rem;margin-bottom:1.5rem;">
+                  Your account does not have permission to access the POS terminal.<br>
+                  Only staff accounts (owner, manager, cashier) may use this interface.
+                </div>
+                <a href="../website/index.html" class="btn btn-outline" style="color:#c0cfc7;border-color:#2b3a32;margin-right:0.75rem;">Back to Store</a>
+                <button class="btn btn-primary" onclick="window.location.reload()">Try Different Account</button>
+              </div>
+            `;
+          }
           return;
         }
         form.style.display = 'none';
@@ -247,7 +262,7 @@
              style="${outOfStock ? 'opacity:.45; cursor:not-allowed;' : ''}">
           <div class="pos-card-sku">${p.sku}</div>
           <div class="pos-card-name">${p.name}</div>
-          <div class="pos-card-stock">${outOfStock ? '⚠ Out of Shop Stock' : `Shop: ${shopStock} available`}</div>
+          <div class="pos-card-stock">${outOfStock ? 'Out of Shop Stock' : `Shop: ${shopStock} available`}</div>
           <div class="pos-card-price">${CeylonAPI.formatLKR(p.retail_price)}</div>
         </div>
       `;
@@ -367,7 +382,7 @@
     if (posCart.length === 0) {
       container.innerHTML = `
         <div style="text-align:center; padding:3rem 1rem; color:#374d3f;">
-          <div style="font-size:2rem; margin-bottom:.5rem;">🎱</div>
+          <div style="font-weight:700; font-size:.95rem; margin-bottom:.25rem; color:#8da498;">Cart Empty</div>
           <div style="font-size:.85rem;">Scan or search a product to begin.</div>
         </div>
       `;
@@ -688,7 +703,7 @@
       CeylonAPI.showToast('Register closed. Session summary saved. Goodbye!', 'success');
 
       setTimeout(() => {
-        window.location.href = 'erp.html';
+        window.location.href = '../erp/index.html';
       }, 1500);
     } catch (err) {
       CeylonAPI.showToast(err.message || 'Failed to close session', 'error');
@@ -703,12 +718,50 @@
     if (overlay) {
       overlay.innerHTML = `
         <div class="session-card" style="text-align:center;">
-          <div style="font-size:2rem; margin-bottom:1rem;">⛔</div>
-          <div style="color:var(--color-danger); font-weight:700; margin-bottom:1rem;">${msg}</div>
-          <a href="index.html" class="btn btn-outline" style="color:#fff; border-color:#333;">Back to Storefront</a>
+          <div style="color:var(--color-danger); font-weight:700; font-size:1.1rem; margin-bottom:1.5rem;">${msg}</div>
+          <a href="../website/index.html" class="btn btn-outline" style="color:#fff; border-color:#333;">Back to Storefront</a>
         </div>
       `;
     }
   }
+
+  window.openShiftHistoryDrawer = async function () {
+    const backdrop = document.getElementById('shift-history-backdrop');
+    const drawer = document.getElementById('shift-history-drawer');
+    const list = document.getElementById('shift-history-list');
+    if (backdrop) backdrop.style.display = 'block';
+    if (drawer) drawer.style.display = 'flex';
+    if (!list) return;
+    list.innerHTML = '<div style="color:#6b8578;text-align:center;padding:2rem 0;">Loading...</div>';
+    try {
+      const res = await CeylonAPI.get('/orders?channel=pos&per_page=20');
+      const items = res.data?.items || [];
+      if (items.length === 0) {
+        list.innerHTML = '<div style="color:#6b8578;text-align:center;padding:2rem 0;">No POS transactions found for this shift.</div>';
+        return;
+      }
+      list.innerHTML = items.map(o => `
+        <div style="border-bottom:1px solid #1e2c26; padding:0.85rem 0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="color:#fff;font-weight:700;font-size:0.9rem;">${o.reference_number || 'CC-POS-' + o.id}</div>
+              <div style="color:#6b8578;font-size:0.75rem;">${CeylonAPI.formatDate(o.created_at)} | ${(o.payment_method||'cash').replace('_',' ').toUpperCase()}</div>
+            </div>
+            <div style="color:var(--color-gold-light);font-weight:800;font-size:1rem;">${CeylonAPI.formatLKR(o.total_amount)}</div>
+          </div>
+          <div style="color:#8da498;font-size:0.78rem;margin-top:0.3rem;">${o.customer_name || 'Walk-in Customer'}</div>
+        </div>
+      `).join('');
+    } catch (e) {
+      list.innerHTML = `<div style="color:var(--color-danger);text-align:center;padding:2rem 0;">Failed to load: ${e.message}</div>`;
+    }
+  };
+
+  window.closeShiftHistoryDrawer = function () {
+    const backdrop = document.getElementById('shift-history-backdrop');
+    const drawer = document.getElementById('shift-history-drawer');
+    if (backdrop) backdrop.style.display = 'none';
+    if (drawer) drawer.style.display = 'none';
+  };
 
 })();

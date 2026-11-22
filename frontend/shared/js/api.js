@@ -8,16 +8,36 @@
 
   // Base API URL Resolution
   function getApiBase() {
+    if (window.CEYLON_API_BASE) {
+      return window.CEYLON_API_BASE;
+    }
     const path = window.location.pathname;
+    const feIndex = path.indexOf('/frontend');
+    if (feIndex !== -1) {
+      return window.location.origin + path.substring(0, feIndex) + '/backend/public/api/v1';
+    }
     const pubIndex = path.indexOf('/public');
     if (pubIndex !== -1) {
       return window.location.origin + path.substring(0, pubIndex + 7) + '/api/v1';
     }
     // If root or custom domain
-    return window.location.origin + '/api/v1';
+    return window.location.origin + '/backend/public/api/v1';
   }
 
   const API_BASE = getApiBase();
+
+  function getBackendBase() {
+    return API_BASE.replace(/\/api\/v1\/?$/, '');
+  }
+
+  function getImageUrl(filePath) {
+    if (!filePath) return '../shared/img/ceylon-cues-logo.png';
+    if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:')) {
+      return filePath;
+    }
+    const cleanPath = filePath.replace(/^\/+/, '');
+    return getBackendBase() + '/' + cleanPath;
+  }
 
   // Session ID generation for persistent guest carts
   function getSessionId() {
@@ -306,6 +326,7 @@
     post: (url, body) => request(url, { method: 'POST', body }),
     put: (url, body) => request(url, { method: 'PUT', body }),
     delete: (url) => request(url, { method: 'DELETE' }),
+    upload: (url, formData) => request(url, { method: 'POST', body: formData }),
 
     // Auth
     getToken,
@@ -319,6 +340,10 @@
     isStaff: () => {
       const u = getUser();
       return u && ['owner', 'shop_manager', 'shop_cashier', 'warehouse_manager', 'inventory_staff', 'order_staff', 'finance_staff'].includes(u.role);
+    },
+    isPosAuthorized: () => {
+      const u = getUser();
+      return u && ['owner', 'shop_manager', 'shop_cashier'].includes(u.role);
     },
 
     // Cart
@@ -335,6 +360,8 @@
     closeModal,
     formatLKR,
     formatDate,
+    getImageUrl,
+    getBackendBase,
   };
 
   // Close modals on backdrop click or ESC

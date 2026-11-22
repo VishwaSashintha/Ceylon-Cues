@@ -169,8 +169,26 @@ final class ProductService
 
         $productId = (int)$this->db->lastInsertId();
 
+        // Optional initial physical stock
+        if (!empty($data['initial_warehouse_stock'])) {
+            $qty = (int)$data['initial_warehouse_stock'];
+            $this->db->prepare("
+                INSERT INTO inventory_stock (product_id, location_id, quantity, reorder_level)
+                VALUES (:pid, 1, :qty, 5)
+                ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
+            ")->execute([':pid' => $productId, ':qty' => $qty]);
+        }
+        if (!empty($data['initial_shop_stock'])) {
+            $qty = (int)$data['initial_shop_stock'];
+            $this->db->prepare("
+                INSERT INTO inventory_stock (product_id, location_id, quantity, reorder_level)
+                VALUES (:pid, 2, :qty, 2)
+                ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
+            ")->execute([':pid' => $productId, ':qty' => $qty]);
+        }
+
         // Default online allocation
-        $allocQty = (int)($data['online_stock_allocation'] ?? 0);
+        $allocQty = (int)($data['online_stock_allocation'] ?? $data['online_allocation'] ?? 0);
         $this->db->prepare("DELETE FROM online_stock_allocations WHERE product_id = :pid AND variant_id IS NULL")->execute([':pid' => $productId]);
         $this->db->prepare("
             INSERT INTO online_stock_allocations (product_id, allocated_quantity, is_visible_online)
@@ -249,6 +267,52 @@ final class ProductService
     {
         $stmt = $this->db->prepare("UPDATE products SET deleted_at = NOW(), is_active = 0 WHERE id = :id");
         return $stmt->execute([':id' => $id]);
+    }
+
+    public function addImage(int $productId, string $filePath, string $fileName, string $altText = '', bool $isPrimary = false): array
+    {
+        if ($isPrimary) {
+            $this->db->prepare("UPDATE product_images SET is_primary = 0 WHERE product_id = :pid")->execute([':pid' => $productId]);
+        } else {
+            $count = (int)$this->db->query("SELECT COUNT(*) FROM product_images WHERE product_id = {$productId}")->fetchColumn();
+            if ($count === 0) {
+                $isPrimary = true;
+            }
+        }
+
+        $stmt = $this->db->prepare("
+            INSERT INTO product_images (product_id, file_path, file_name, alt_text, sort_order, is_primary)
+            VALUES (:pid, :path, :name, :alt, 0, :pri)
+        ");
+        $stmt->execute([
+            ':pid'  => $productId,
+            ':path' => $filePath,
+            ':name' => $fileName,
+            ':alt'  => $altText ?: $fileName,
+            ':pri'  => $isPrimary ? 1 : 0,
+        ]);
+
+        return [
+            'id' => (int)$this->db->lastInsertId(),
+            'product_id' => $productId,
+            'file_path' => $filePath,
+            'file_name' => $fileName,
+            'is_primary' => $isPrimary,
+        ];
+    }
+
+    public function deleteImage(int $imageId): bool
+    {
+        $stmt = $this->db->prepare("SELECT file_path FROM product_images WHERE id = :id");
+        $stmt->execute([':id' => $imageId]);
+        $img = $stmt->fetch();
+        if ($img && !empty($img['file_path'])) {
+            $realPath = dirname(__DIR__, 3) . '/public/' . ltrim($img['file_path'], '/');
+            if (file_exists($realPath) && is_file($realPath)) {
+                @unlink($realPath);
+            }
+        }
+        return $this->db->prepare("DELETE FROM product_images WHERE id = :id")->execute([':id' => $imageId]);
     }
 
     public function getProductImages(int $productId): array

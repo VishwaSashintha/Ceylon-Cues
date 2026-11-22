@@ -101,6 +101,8 @@ $router->group('/api/v1', function ($router) {
         $router->post('/products', [ProductController::class, 'store']);
         $router->put('/products/{id}', [ProductController::class, 'update']);
         $router->delete('/products/{id}', [ProductController::class, 'destroy']);
+        $router->post('/products/{id}/images', [ProductController::class, 'uploadImage']);
+        $router->delete('/products/images/{id}', [ProductController::class, 'destroyImage']);
 
         $router->post('/categories', [CategoryController::class, 'store']);
         $router->put('/categories/{id}', [CategoryController::class, 'update']);

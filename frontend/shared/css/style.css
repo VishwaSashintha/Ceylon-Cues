@@ -3,6 +3,8 @@
    Brand Palette: Emerald Green (#087A55), Obsidian (#111815), Gold (#C6A15B)
    ========================================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Roboto:wght@400;500;700&display=swap');
+
 :root {
   /* Brand Color Tokens */
   --color-primary: #087a55;
@@ -36,7 +38,10 @@
   --color-info: #2563eb;
 
   /* Typography */
-  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-store: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-erp: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-pos: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family: var(--font-store);
   --font-serif: 'Playfair Display', Georgia, serif;
 
   /* Elevation & Shadows */
@@ -77,6 +82,18 @@ body {
   color: var(--color-text);
   line-height: 1.5;
   min-height: 100vh;
+}
+
+body.storefront-body {
+  font-family: var(--font-store);
+}
+
+body.erp-body {
+  font-family: var(--font-erp);
+}
+
+body.pos-body {
+  font-family: var(--font-pos);
 }
 
 a {

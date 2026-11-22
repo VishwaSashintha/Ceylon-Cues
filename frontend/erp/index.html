@@ -6,10 +6,10 @@
   <title>Ceylon Cues ERP — Central Business & Inventory Management</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/css/style.css">
 </head>
-<body style="background-color: var(--color-bg);">
+<body class="erp-body" style="background-color: var(--color-bg);">
 
   <!-- ERP Application Shell -->
   <div class="erp-layout">
@@ -17,7 +17,7 @@
     <!-- Left Navigation Sidebar -->
     <aside class="erp-sidebar">
       <div class="erp-brand">
-        <img src="uploads/logo/ceylon-cues-logo.png" alt="Ceylon Cues">
+        <img src="../shared/img/ceylon-cues-logo.png" alt="Ceylon Cues">
         <div>
           <div style="font-weight: 800; font-size: 1.15rem; line-height: 1.2;">CEYLON <span class="text-gold">CUES</span></div>
           <div style="font-size: 0.65rem; color: var(--color-dark-text-muted); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
@@ -30,62 +30,65 @@
       <nav class="erp-nav">
         <div class="erp-nav-section">Operations</div>
         <a href="javascript:void(0)" class="erp-nav-item active" onclick="switchView('dashboard', this)">
-          <span>📊</span> Dashboard
+          Dashboard
         </a>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('orders', this)">
-          <span>📦</span> Orders & Fulfillment
+          Orders &amp; Fulfillment
+        </a>
+        <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('pos-transactions', this)">
+          <span>POS</span> POS Shift Transactions
         </a>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('payments', this)">
-          <span>🏦</span> Bank Verification
+          Bank Verification
         </a>
 
         <div class="erp-nav-section">Inventory & Catalog</div>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('products', this)">
-          <span>🎱</span> Products & Catalog
+          Products &amp; Catalog
         </a>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('inventory', this)">
-          <span>🏢</span> Multi-Location Stock
+          Multi-Location Stock
         </a>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('transfers', this)">
-          <span>🔄</span> Stock Transfers
+          Stock Transfers
         </a>
 
         <div class="erp-nav-section">Finance & Marketing</div>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('finance', this)">
-          <span>💰</span> Expenses & P&L
+          Expenses &amp; P&amp;L
         </a>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('marketing', this)">
-          <span>🏷️</span> Coupons & Discounts
+          Coupons &amp; Discounts
         </a>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('wholesale', this)">
-          <span>🤝</span> Wholesale Enquiries
+          Wholesale Enquiries
         </a>
 
         <div class="erp-nav-section">Customer Care</div>
         <a href="javascript:void(0)" class="erp-nav-item" onclick="switchView('support', this)">
-          <span>💬</span> Support Tickets
+          Support Tickets
         </a>
 
         <div class="erp-nav-section owner-only-nav" style="display: none;">Owner Controls</div>
         <a href="javascript:void(0)" class="erp-nav-item owner-only-nav" style="display: none;" onclick="switchView('employees', this)">
-          <span>👥</span> Employees & RBAC
+          Employees &amp; RBAC
         </a>
         <a href="javascript:void(0)" class="erp-nav-item owner-only-nav" style="display: none;" onclick="switchView('settings', this)">
-          <span>⚙️</span> Settings & Backup
+          Settings &amp; Backup
         </a>
       </nav>
 
       <!-- User Profile Badge & Quick Links -->
       <div class="erp-user-badge">
         <div style="display: flex; align-items: center; gap: 0.65rem;">
-          <div style="font-size: 1.5rem;">👤</div>
+          <div style="font-weight: 800; font-size: 0.85rem; color: var(--color-gold); background: #1f2c26; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">U</div>
           <div>
             <div id="erp-user-name" style="font-weight: 700; font-size: 0.85rem; color: #ffffff;">Loading...</div>
             <div id="erp-user-role" class="badge badge-emerald" style="font-size: 0.65rem; padding: 0.15rem 0.4rem;">Owner</div>
           </div>
         </div>
-        <button onclick="CeylonAPI.logout()" title="Logout" style="color: var(--color-danger); font-size: 1.1rem; padding: 0.25rem;">
-          🚪
+        <button onclick="CeylonAPI.logout()" title="Logout" style="color: var(--color-danger); font-size: 0.85rem; font-weight: 700; padding: 0.25rem 0.5rem; border: 1px solid rgba(220,38,38,0.3); border-radius: 4px;">
+          Logout
         </button>
       </div>
     </aside>
@@ -101,11 +104,11 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 1rem;">
-          <a href="index.html" target="_blank" class="btn btn-outline btn-sm">
-            <span>🌐</span> Online Store
+          <a href="../website/index.html" target="_blank" class="btn btn-outline btn-sm">
+            Online Store
           </a>
-          <a href="pos.html" class="btn btn-primary btn-sm">
-            <span>🖥️</span> Open POS Terminal
+          <a href="../pos/index.html" target="_blank" class="btn btn-primary btn-sm">
+            Open POS Terminal
           </a>
         </div>
       </header>
@@ -177,16 +180,16 @@
                 <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">Quick Operations</h3>
                 <div style="display: flex; flex-direction: column; gap: 0.65rem;">
                   <button class="btn btn-outline" style="justify-content: flex-start;" onclick="openCreateProductModal()">
-                    <span>➕</span> Add New Product
+                    Add New Product
                   </button>
                   <button class="btn btn-outline" style="justify-content: flex-start;" onclick="openCreateTransferModal()">
-                    <span>🔄</span> Transfer Stock to Shop
+                    Transfer Stock to Shop
                   </button>
                   <button class="btn btn-outline" style="justify-content: flex-start;" onclick="openStockAdjustmentModal()">
-                    <span>⚖️</span> Log Stock Adjustment
+                    Log Stock Adjustment
                   </button>
                   <button class="btn btn-outline" style="justify-content: flex-start;" onclick="openAddExpenseModal()">
-                    <span>💸</span> Record Business Expense
+                    Record Business Expense
                   </button>
                 </div>
               </div>
@@ -294,8 +297,8 @@
                 </select>
               </div>
               <div style="display: flex; gap: 0.75rem;">
-                <button class="btn btn-outline btn-sm" onclick="openCategoriesManagerModal()">📁 Manage Categories</button>
-                <button class="btn btn-primary btn-sm" onclick="openCreateProductModal()">➕ Create Product</button>
+                <button class="btn btn-outline btn-sm" onclick="openCategoriesManagerModal()">Manage Categories</button>
+                <button class="btn btn-primary btn-sm" onclick="openCreateProductModal()">Create Product</button>
               </div>
             </div>
 
@@ -333,8 +336,8 @@
                 </p>
               </div>
               <div style="display: flex; gap: 0.75rem;">
-                <button class="btn btn-outline btn-sm" onclick="openMovementsAuditModal()">📜 Movement Logs</button>
-                <button class="btn btn-primary btn-sm" onclick="openStockAdjustmentModal()">⚖️ Stock Adjustment</button>
+                <button class="btn btn-outline btn-sm" onclick="openMovementsAuditModal()">Movement Logs</button>
+                <button class="btn btn-primary btn-sm" onclick="openStockAdjustmentModal()">Stock Adjustment</button>
               </div>
             </div>
 
@@ -547,7 +550,7 @@
               <p style="color: var(--color-text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
                 Generate an immediate full SQL dump of all 60 tables including orders, ledgers, and transactions.
               </p>
-              <button class="btn btn-gold" onclick="triggerDatabaseBackup()">💾 Create Full Database Backup</button>
+              <button class="btn btn-gold" onclick="triggerDatabaseBackup()">Create Full Database Backup</button>
               <div id="backup-result" style="margin-top: 1rem;"></div>
             </div>
 
@@ -558,8 +561,8 @@
                 Test business alerts to owner phone and process outgoing message queues.
               </p>
               <div style="display: flex; gap: 1rem;">
-                <button class="btn btn-outline" onclick="triggerTestAlert()">📱 Send Test Alert</button>
-                <button class="btn btn-primary" onclick="triggerQueueWorker()">⚡ Process Queue</button>
+                <button class="btn btn-outline" onclick="triggerTestAlert()">Send Test Alert</button>
+                <button class="btn btn-primary" onclick="triggerQueueWorker()">Process Queue</button>
               </div>
               <div id="notif-result" style="margin-top: 1rem;"></div>
             </div>
@@ -961,7 +964,7 @@
   <div class="modal-backdrop" id="movements-audit-modal">
     <div class="modal-dialog modal-lg" style="max-width: 900px;">
       <div class="modal-header">
-        <h3 class="modal-title">📋 Stock Movement Audit Trail</h3>
+        <h3 class="modal-title">Stock Movement Audit Trail</h3>
         <button class="modal-close" data-close-modal>×</button>
       </div>
       <div class="modal-body" style="padding: 0;">
@@ -987,8 +990,8 @@
     </div>
   </div>
 
-  <!-- Shared Scripts -->
-  <script src="assets/js/api.js"></script>
-  <script src="assets/js/erp.js"></script>
+  <!-- Scripts -->
+  <script src="../shared/js/api.js"></script>
+  <script src="erp.js"></script>
 </body>
 </html>

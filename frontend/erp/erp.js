@@ -17,7 +17,7 @@
     if (!user || !CeylonAPI.isStaff()) {
       CeylonAPI.showToast('Authentication required for ERP access.', 'warning');
       setTimeout(() => {
-        window.location.href = 'index.html';
+        window.location.href = '../website/index.html';
       }, 1000);
       return;
     }
@@ -97,6 +97,34 @@
 
     const catForm = document.getElementById('create-category-form');
     if (catForm) catForm.addEventListener('submit', handleCreateCategorySubmit);
+
+    const editForm = document.getElementById('edit-product-form');
+    if (editForm) {
+      editForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const productId = document.getElementById('edit-product-id').value;
+        try {
+          await CeylonAPI.put('/products/' + productId, {
+            name: document.getElementById('edit-product-name').value,
+            sku: document.getElementById('edit-product-sku').value,
+            barcode: document.getElementById('edit-product-barcode').value || null,
+            description: document.getElementById('edit-product-description').value,
+            category_id: parseInt(document.getElementById('edit-product-category').value) || null,
+            quality_tier: document.getElementById('edit-product-tier').value,
+            cost_price: parseFloat(document.getElementById('edit-product-cost').value),
+            retail_price: parseFloat(document.getElementById('edit-product-retail').value),
+            wholesale_price: document.getElementById('edit-product-wholesale').value ? parseFloat(document.getElementById('edit-product-wholesale').value) : null,
+            is_published: document.getElementById('edit-product-published').checked ? 1 : 0,
+            is_featured: document.getElementById('edit-product-featured').checked ? 1 : 0,
+          });
+          CeylonAPI.showToast('Product updated successfully!', 'success');
+          CeylonAPI.closeModal('edit-product-modal');
+          loadProductsList();
+        } catch (err) {
+          CeylonAPI.showToast(err.message || 'Failed to update product', 'error');
+        }
+      });
+    }
   }
 
   // View Switching
@@ -132,6 +160,7 @@
       support: 'Customer Support Tickets',
       employees: 'Staff Employees & Permissions (Owner Only)',
       settings: 'System Settings & Backups (Owner Only)',
+      'pos-transactions': 'Physical Shop POS Transactions',
     };
     const titleEl = document.getElementById('erp-view-title');
     if (titleEl) titleEl.textContent = titles[viewName] || 'Business Management';
@@ -148,6 +177,7 @@
     else if (viewName === 'wholesale') loadWholesaleEnquiries();
     else if (viewName === 'support') loadSupportTickets();
     else if (viewName === 'employees') loadEmployees();
+    else if (viewName === 'pos-transactions') loadPosTransactions();
   };
 
   // 1. Dashboard View
@@ -397,6 +427,9 @@
       if (formCat) {
         formCat.innerHTML = cachedCategories.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
       }
+      const catFilterOpts = cachedCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      const editCatSel = document.getElementById('edit-product-category');
+      if (editCatSel) editCatSel.innerHTML = '<option value="">-- Select --</option>' + catFilterOpts;
     } catch (e) {
       console.error('Failed to load categories', e);
     }
@@ -439,7 +472,10 @@
         <td><span class="badge badge-dark">Whse: ${p.total_physical_stock || '0'}</span></td>
         <td><span class="badge badge-gold">Alloc: ${p.online_stock || '0'}</span></td>
         <td>
-          <button class="btn btn-outline btn-sm" onclick="openStockAdjustmentModal(${p.id})">Adjust</button>
+          <div style="display:flex;gap:0.4rem;">
+            <button class="btn btn-outline btn-sm" onclick="openEditProductModal(${p.id})">Edit</button>
+            <button class="btn btn-sm" style="background:#f1f5f2;border:1px solid var(--color-border);" onclick="openStockAdjustmentModal(${p.id})">Stock</button>
+          </div>
         </td>
       </tr>
     `).join('');
@@ -1036,6 +1072,99 @@
         return 'badge-danger';
       default:
         return 'badge-dark';
+    }
+  }
+
+
+  window.openEditProductModal = async function (productId) {
+    try {
+      const res = await CeylonAPI.get('/products/' + productId);
+      const p = res.data;
+      document.getElementById('edit-product-id').value = p.id;
+      document.getElementById('edit-product-name').value = p.name || '';
+      document.getElementById('edit-product-sku').value = p.sku || '';
+      document.getElementById('edit-product-barcode').value = p.barcode || '';
+      document.getElementById('edit-product-description').value = p.description || '';
+      document.getElementById('edit-product-cost').value = p.cost_price || '';
+      document.getElementById('edit-product-retail').value = p.retail_price || '';
+      document.getElementById('edit-product-wholesale').value = p.wholesale_price || '';
+      const catSel = document.getElementById('edit-product-category');
+      if (catSel) catSel.value = p.category_id || '';
+      const tierSel = document.getElementById('edit-product-tier');
+      if (tierSel) tierSel.value = p.quality_tier || 'standard';
+      const pubChk = document.getElementById('edit-product-published');
+      if (pubChk) pubChk.checked = !!p.is_published;
+      const featChk = document.getElementById('edit-product-featured');
+      if (featChk) featChk.checked = !!p.is_featured;
+
+      const imgDiv = document.getElementById('edit-product-images');
+      if (imgDiv) {
+        const imgs = p.images || [];
+        imgDiv.innerHTML = imgs.length === 0
+          ? '<div style="color:var(--color-text-muted);font-size:0.85rem;">No images uploaded yet.</div>'
+          : imgs.map(img => `
+            <div style="display:inline-flex;align-items:center;gap:0.4rem;background:#f1f5f2;border-radius:6px;padding:0.3rem 0.6rem;margin:0.2rem;">
+              <img src="${CeylonAPI.getImageUrl(img.file_path)}" alt="${img.alt_text||''}" style="height:36px;width:36px;object-fit:cover;border-radius:4px;">
+              <button type="button" onclick="deleteProductImage(${img.id})" style="color:var(--color-danger);font-size:0.75rem;font-weight:700;padding:0.1rem 0.3rem;">Remove</button>
+            </div>
+          `).join('');
+      }
+
+      CeylonAPI.openModal('edit-product-modal');
+    } catch (err) {
+      CeylonAPI.showToast(err.message || 'Failed to load product', 'error');
+    }
+  };
+
+  window.deleteProductImage = async function (imageId) {
+    if (!confirm('Remove this image?')) return;
+    try {
+      await CeylonAPI.delete('/products/images/' + imageId);
+      CeylonAPI.showToast('Image removed.', 'success');
+    } catch (e) {
+      CeylonAPI.showToast(e.message || 'Failed to remove image', 'error');
+    }
+  };
+
+  window.handleEditProductImageUpload = async function (input) {
+    const productId = document.getElementById('edit-product-id').value;
+    if (!productId || !input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      await CeylonAPI.upload('/products/' + productId + '/images', formData);
+      CeylonAPI.showToast('Image uploaded!', 'success');
+      openEditProductModal(parseInt(productId));
+    } catch (e) {
+      CeylonAPI.showToast(e.message || 'Upload failed', 'error');
+    }
+  };
+
+  async function loadPosTransactions() {
+    const tbody = document.getElementById('erp-pos-transactions-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
+    try {
+      const res = await CeylonAPI.get('/orders?channel=pos&per_page=50');
+      const list = res.data?.items || [];
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);">No POS transactions recorded yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map(o => `
+        <tr>
+          <td><strong>${o.reference_number || 'CC-POS-' + o.id}</strong></td>
+          <td>${CeylonAPI.formatDate(o.created_at)}</td>
+          <td>${o.customer_name || 'Walk-in'}</td>
+          <td style="text-align:center;">${o.item_count || '—'}</td>
+          <td style="font-weight:700;color:var(--color-primary);">${CeylonAPI.formatLKR(o.total_amount)}</td>
+          <td><span class="badge badge-dark">${(o.payment_method||'cash').replace('_',' ').toUpperCase()}</span></td>
+          <td><span class="badge badge-emerald">${(o.status||'completed').toUpperCase()}</span></td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--color-danger);">Failed to load POS transactions: ${e.message}</td></tr>`;
     }
   }
 

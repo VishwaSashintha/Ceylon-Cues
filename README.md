@@ -1,141 +1,200 @@
 # Ceylon Cues
 
-## Overview
+A complete business management platform for a billiards and pool accessories retailer in Sri Lanka. The system combines a customer-facing e-commerce storefront, a central ERP dashboard and a physical retail POS terminal into one connected application.
 
-Ceylon Cues is a business management and commerce platform designed for a billiards and pool equipment retailer in Sri Lanka. The system unifies customer-facing online retail, central ERP business management, multi-location inventory tracking, and physical retail shop point-of-sale (POS) operations into a single platform powered by a central PHP REST API and MySQL database.
+---
 
-## Main Features
+## Repository Structure
 
-- Customer-Facing Storefront: Product catalog with filtering by category and quality tier, debounced search, product specifications, shopping cart management, coupon application, district-based delivery calculation, order placement, and customer account management with order tracking and support tickets.
-- Central ERP Dashboard: Executive business dashboard with sales summaries, revenue by channel, inventory valuation, recent orders, and operational alerts.
-- Multi-Location Inventory: Dual-location tracking across Main Warehouse and Physical Retail Shop, internal stock transfers with approval workflow, stock adjustments, and immutable movement audit logs.
-- Online Stock Allocation: Independent allocation of physical inventory for online sales to prevent overselling.
-- Retail Point of Sale (POS): Cashier register session management with opening float and closing cash reconciliation, barcode/SKU scanning, live shop inventory enforcement, cash tender with change calculation, card payment reference recording, and printable thermal receipts.
-- Order Management: Multi-channel order processing (online and POS), status transitions (pending, confirmed, processing, shipped, delivered, cancelled), and cancellation with automatic reservation release.
-- Payment Management: Support for cash, bank transfers with customer deposit slip submission and owner verification, sandbox card/BNPL gateways, and order refunds.
-- Wholesale Inquiries: Dedicated inquiry submission and management for billiard clubs, hotels, and bulk buyers.
-- Customer Support: In-platform ticketing system with threaded messaging between customers and staff.
-- Marketing and Discounts: Percentage, fixed amount, and free delivery promotional codes with usage limits, minimum order thresholds, and date validity.
-- Employee Management and RBAC: Role-based access control with predefined roles (owner, shop manager, shop cashier, warehouse manager, inventory staff, order staff, finance staff, customer support) and granular permissions.
-- Business Administration: Automated full database backup generation and notification queue processing.
+```
+Ceylon Cues/
+├── backend/                    PHP 8.2 REST API and business logic
+│   ├── bin/                    CLI workers (notification worker)
+│   ├── config/                 Application and database configuration
+│   ├── database/               Migrations, seed data, install scripts
+│   │   └── migrations/         Numbered SQL migration files
+│   ├── docs/                   Internal API and architecture notes
+│   ├── public/                 Apache document root
+│   │   ├── index.php           Front controller
+│   │   ├── .htaccess           URL rewriting rules
+│   │   └── uploads/            Product image storage
+│   ├── routes/                 API route definitions
+│   ├── src/                    Application source code
+│   │   ├── Controllers/        HTTP request handlers
+│   │   ├── Middleware/         Auth, CORS, rate-limiting
+│   │   ├── Models/             Database models
+│   │   ├── Services/           Business logic services
+│   │   └── Helpers/            Utility classes
+│   ├── storage/logs/           Runtime logs
+│   ├── tests/                  Automated test suite
+│   ├── composer.json
+│   └── .env.example            Environment variable template
+│
+├── frontend/                   Vanilla HTML, CSS and JavaScript
+│   ├── website/                Customer e-commerce storefront
+│   │   ├── index.html
+│   │   └── storefront.js
+│   ├── erp/                    Owner ERP and management dashboard
+│   │   ├── index.html
+│   │   └── erp.js
+│   ├── pos/                    Physical retail POS terminal
+│   │   ├── index.html
+│   │   └── pos.js
+│   └── shared/                 Shared assets used by all frontends
+│       ├── css/style.css
+│       ├── js/api.js           API client with auto-detected base URL
+│       └── img/                Brand logos
+│
+├── index.html                  Root redirect to the storefront
+├── .gitignore
+└── README.md
+```
+
+---
 
 ## Technology Stack
 
-- Backend: PHP 8.2+ (native PSR-4 modular architecture)
-- Frontend: HTML5, CSS3 (custom responsive design tokens), JavaScript (ES6+ modular client)
-- Database: MySQL 8.0 / MariaDB 10.4+ (InnoDB, utf8mb4)
-- Web Server: Apache with mod_rewrite (XAMPP environment)
-- Security: Argon2id password hashing, SHA-256 session tokens, parameterized PDO queries, rate limiting, and CSRF protection
-- Package Management: Composer
+| Layer | Technology |
+|---|---|
+| Backend language | PHP 8.2 |
+| Database | MySQL 8 |
+| Web server | Apache (XAMPP) |
+| Frontend | Vanilla HTML5, CSS3, JavaScript (ES2020) |
+| Currency | LKR (Sri Lankan Rupee) |
+| Timezone | Asia/Colombo |
 
-## Project Structure
+---
 
-- bin/: CLI utility scripts, including background notification worker.
-- config/: Application and database connection configuration.
-- database/: Schema migrations (60 migrations), seeds, and installation scripts.
-- docs/: API documentation, including OpenAPI 3.0 specification.
-- public/: Web root containing the front controller, storefront, ERP, POS interfaces, and asset directories.
-- public/assets/: Shared CSS design system and JavaScript controllers (api.js, storefront.js, erp.js, pos.js).
-- routes/: REST API route definitions.
-- src/: Core application classes, HTTP middleware, controllers, and business service modules.
-- storage/: Temporary runtime storage, backups, and log files.
-- tests/: Automated scenario test runner covering 22 integration workflows.
-
-## Installation and Setup
+## Local Development Setup
 
 ### Prerequisites
 
-- PHP 8.2 or later with pdo_mysql, curl, mbstring, and openssl extensions enabled.
-- MySQL 8.0 or MariaDB 10.4 or later.
-- Composer.
-- Apache web server (or local XAMPP installation).
+- XAMPP with Apache and MySQL running
+- PHP 8.2 on PATH (`C:\xampp\php\php.exe`)
+- Composer installed globally
 
-### Step 1: Clone the Repository
+### 1. Create XAMPP junction
 
-```bash
-git clone https://github.com/VishwaSashintha/Ceylon-Cues.git
-cd Ceylon-Cues
+Create a Windows directory junction so Apache can serve the project:
+
+```powershell
+mklink /J "C:\xampp\htdocs\ceylon-cues" "C:\Users\Vishwa\Desktop\Ceylon Cues"
 ```
 
-### Step 2: Install Dependencies
+### 2. Configure environment
 
-```bash
-composer install --no-dev --optimize-autoloader
+```powershell
+Copy-Item backend\.env.example backend\.env
 ```
 
-### Step 3: Configure Environment
+Edit `backend\.env` and set your database credentials and other secrets:
 
-Copy the example environment configuration file:
-
-```bash
-cp .env.example .env
 ```
-
-Edit the .env file with your local database connection parameters:
-
-```ini
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=ceylon_cues
-DB_USERNAME=root
-DB_PASSWORD=
-APP_URL=http://localhost/ceylon-cues
+DB_NAME=ceylon_cues
+DB_USER=root
+DB_PASS=
+
+APP_ENV=local
+APP_KEY=your-random-secret-key
+JWT_SECRET=your-jwt-secret
+
+TIMEZONE=Asia/Colombo
+CURRENCY=LKR
 ```
 
-### Step 4: Run Migrations and Seed Data
+### 3. Install PHP dependencies
 
-Create the database and execute migrations:
-
-```bash
-php database/install.php
-php database/seed.php
+```powershell
+cd backend
+composer install
+cd ..
 ```
 
-### Step 5: Bootstrap Owner Account
+### 4. Set up the database
 
-Create the initial Super Administrator / Owner identity:
+Run these three scripts in order:
 
-```bash
-php database/bootstrap.php
+```powershell
+# Create all tables
+php backend/database/install.php
+
+# Apply any pending migrations
+php backend/database/migrate.php
+
+# Seed initial data (categories, products, owner account, settings)
+php backend/database/seed.php
+
+# Bootstrap application state
+php backend/database/bootstrap.php
 ```
 
-## Configuration
+---
 
-- Web Server: When deploying under an Apache subfolder (such as XAMPP htdocs), ensure mod_rewrite and mod_headers are enabled. The included public/.htaccess file handles route rewriting and passes the Authorization header to PHP.
-- WhatsApp Business API: Optional cloud notification integration. Configure WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN in .env when activating live WhatsApp messaging.
-- Payment Gateways: Online card and BNPL providers require merchant account credentials. By default, payment processing operates in sandbox mode for development. Real payment processing requires active provider credentials.
+## Accessing the Application
 
-## Running the Application
+Start Apache and MySQL in XAMPP, then open:
 
-### Using XAMPP
+| Interface | URL |
+|---|---|
+| Customer Storefront | `http://localhost/ceylon-cues/frontend/website/index.html` |
+| Owner ERP Dashboard | `http://localhost/ceylon-cues/frontend/erp/index.html` |
+| Retail POS Terminal | `http://localhost/ceylon-cues/frontend/pos/index.html` |
+| REST API root | `http://localhost/ceylon-cues/backend/public/api/v1/` |
 
-1. Place or link the project directory inside the XAMPP htdocs folder:
-   ```cmd
-   mklink /J "C:\xampp\htdocs\ceylon-cues" "c:\path\to\Ceylon Cues"
-   ```
-2. Start the Apache and MySQL services from the XAMPP Control Panel.
-3. Access the interfaces in a web browser:
-   - Customer Storefront: http://localhost/ceylon-cues/public/index.html
-   - Central ERP: http://localhost/ceylon-cues/public/erp.html
-   - Retail Shop POS: http://localhost/ceylon-cues/public/pos.html
-   - REST API Base: http://localhost/ceylon-cues/public/api/v1/
+The root URL `http://localhost/ceylon-cues/` automatically redirects to the storefront.
 
-### Using PHP Built-in Server (Alternative)
+### Default owner credentials
 
-```bash
-php -S localhost:8000 -t public
+After running the seed script, log in to the ERP dashboard with:
+
+```
+Email:    owner@ceyloncues.com
+Password: Ceylon@2024
 ```
 
-### Running Tests
+Use the same credentials to open a POS session from the POS terminal.
 
-Execute the automated test suite verifying 22 business scenarios:
+---
 
-```bash
-php tests/run-tests.php
+## API
+
+The REST API is served from `backend/public/` via the Apache front controller.
+
+Base URL: `/backend/public/api/v1/`
+
+The shared API client (`frontend/shared/js/api.js`) auto-detects the correct base URL from the browser path, so no configuration is needed in the frontend files.
+
+All API responses use JSON. Authentication uses JWT tokens stored in `localStorage`.
+
+---
+
+## Running Tests
+
+```powershell
+php backend/tests/run-tests.php
 ```
+
+Expected result: **22/22 tests passing**.
+
+---
+
+## Background Worker
+
+The notification worker processes queued WhatsApp and email notifications:
+
+```powershell
+php backend/bin/notification-worker.php
+```
+
+Run this in a separate terminal or configure it as a scheduled task.
+
+---
 
 ## Notes
 
-- Currency: All monetary amounts are handled in Sri Lankan Rupees (LKR) with standard two-decimal precision.
-- Timezone: Default application timezone is configured to Asia/Colombo (+05:30).
-- Payment Gateway Notice: External payment gateways (e.g., PayHere, KOKO, Mintpay) require verified merchant credentials and webhook endpoints for production activation. In local environments, bank transfer with manual verification is fully functional for live order processing.
+- `backend/vendor/` is excluded from version control. Always run `composer install` after cloning.
+- `backend/.env` is excluded from version control. Copy `.env.example` and configure it.
+- Product images are stored in `backend/public/uploads/` and served directly by Apache.
+- The frontend requires no build step — it is plain HTML, CSS and JavaScript.

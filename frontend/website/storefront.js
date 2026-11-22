@@ -83,36 +83,24 @@
 
     const user = CeylonAPI.getUser();
     if (user) {
-      const isStaff = CeylonAPI.isStaff();
-      let staffLinks = '';
-      if (isStaff) {
-        staffLinks = `
-          <a href="erp.html" style="display: block; padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600; color: var(--color-primary); border-bottom: 1px solid var(--color-border);">
-            📊 ERP Dashboard
-          </a>
-          <a href="pos.html" style="display: block; padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600; color: var(--color-primary); border-bottom: 1px solid var(--color-border);">
-            🖥️ Shop POS Terminal
-          </a>
-        `;
-      }
-
       container.innerHTML = `
         <div style="position: relative; display: inline-block;">
           <button class="btn btn-outline btn-sm" id="user-menu-btn" onclick="toggleUserDropdown()" style="display: flex; align-items: center; gap: 0.4rem;">
-            <span>👤</span>
-            <span>${user.first_name || 'My Account'}</span>
+            <span>${user.first_name || 'Account'}</span>
             <span style="font-size: 0.65rem;">▼</span>
           </button>
-          <div id="user-dropdown" style="display: none; position: absolute; right: 0; top: 110%; width: 200px; background: #ffffff; border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); z-index: 1000; overflow: hidden;">
+          <div id="user-dropdown" style="display: none; position: absolute; right: 0; top: 110%; width: 210px; background: #ffffff; border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); z-index: 1000; overflow: hidden;">
             <div style="padding: 0.75rem 1rem; font-size: 0.75rem; color: var(--color-text-muted); background: #fafbfa; border-bottom: 1px solid var(--color-border);">
               Signed in as<br><strong style="color: var(--color-dark);">${user.email}</strong>
             </div>
-            ${staffLinks}
-            <a href="javascript:void(0)" onclick="openAccountModal()" style="display: block; padding: 0.5rem 1rem; font-size: 0.85rem; color: var(--color-text);">
-              📦 My Orders & Tracking
+            <a href="javascript:void(0)" onclick="openAccountModal()" style="display: block; padding: 0.6rem 1rem; font-size: 0.85rem; color: var(--color-text);">
+              My Orders &amp; Tracking
             </a>
-            <a href="javascript:void(0)" onclick="CeylonAPI.logout()" style="display: block; padding: 0.5rem 1rem; font-size: 0.85rem; color: var(--color-danger); border-top: 1px solid var(--color-border);">
-              🚪 Log Out
+            <a href="javascript:void(0)" onclick="openSupportModal()" style="display: block; padding: 0.6rem 1rem; font-size: 0.85rem; color: var(--color-text); border-top: 1px solid var(--color-border);">
+              Customer Support
+            </a>
+            <a href="javascript:void(0)" onclick="CeylonAPI.logout()" style="display: block; padding: 0.6rem 1rem; font-size: 0.85rem; color: var(--color-danger); border-top: 1px solid var(--color-border);">
+              Log Out
             </a>
           </div>
         </div>
@@ -183,7 +171,7 @@
     if (container) {
       container.innerHTML = `
         <div style="grid-column: 1/-1; text-align: center; padding: 4rem 0;">
-          <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔄 Loading authentic cues...</div>
+          <div style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-primary);">Loading authentic collection...</div>
           <div style="color: var(--color-text-muted);">Fetching from Ceylon Cues database</div>
         </div>
       `;
@@ -239,7 +227,6 @@
     if (filtered.length === 0) {
       container.innerHTML = `
         <div style="grid-column: 1/-1; text-align: center; padding: 4rem 0;">
-          <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎱</div>
           <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">No Equipment Found</h3>
           <p style="color: var(--color-text-muted);">Try adjusting your category or tier filters.</p>
         </div>
@@ -260,7 +247,7 @@
       }
 
       // Stock badge
-      let stockBadge = `<span class="badge badge-emerald product-badge-stock">✓ In Stock (${onlineStock})</span>`;
+      let stockBadge = `<span class="badge badge-emerald product-badge-stock">In Stock (${onlineStock})</span>`;
       if (isOutOfStock) {
         stockBadge = `<span class="badge badge-danger product-badge-stock">Out of Stock</span>`;
       } else if (onlineStock <= 3) {
@@ -276,10 +263,12 @@
         }
       }
 
+      const imgUrl = CeylonAPI.getImageUrl(p.images && p.images.length > 0 ? p.images[0].file_path : null);
+
       html += `
         <div class="product-card">
           <div class="product-thumb" onclick="openProductModal(${p.id})">
-            <img src="uploads/logo/ceylon-cues-logo.png" alt="${p.name}">
+            <img src="${imgUrl}" alt="${p.name}">
             <span class="badge ${tierBadgeClass} product-badge-tier">${tierLabel}</span>
             ${stockBadge}
           </div>
@@ -332,8 +321,7 @@
     if (!cart.items || cart.items.length === 0) {
       list.innerHTML = `
         <div style="text-align: center; padding: 4rem 1rem; color: var(--color-text-muted);">
-          <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🛒</div>
-          <div style="font-weight: 700; margin-bottom: 0.25rem;">Your Cart is Empty</div>
+          <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--color-dark);">Your Cart is Empty</div>
           <div style="font-size: 0.85rem;">Explore our tournament cues and add equipment.</div>
         </div>
       `;
@@ -350,7 +338,7 @@
       html += `
         <div class="cart-item">
           <div class="cart-item-img">
-            <img src="uploads/logo/ceylon-cues-logo.png" style="max-height: 50px;">
+            <img src="${CeylonAPI.getImageUrl(item.image_path || null)}" style="max-height: 50px; max-width: 50px; object-fit: contain;">
           </div>
           <div class="cart-item-info">
             <div class="cart-item-title">${item.product_name}</div>
@@ -439,10 +427,23 @@
       }
     }
 
+    const mainImgUrl = CeylonAPI.getImageUrl(p.images && p.images.length > 0 ? p.images[0].file_path : null);
+    let galleryHtml = '';
+    if (p.images && p.images.length > 1) {
+      galleryHtml = `
+        <div style="display:flex; gap:0.5rem; margin-top:0.75rem; justify-content:center; flex-wrap:wrap;">
+          ${p.images.map((img) => `
+            <img src="${CeylonAPI.getImageUrl(img.file_path)}" onclick="document.getElementById('modal-main-product-img').src='${CeylonAPI.getImageUrl(img.file_path)}'" style="height:48px; width:48px; object-fit:cover; border-radius:6px; border:1px solid var(--color-border); cursor:pointer;">
+          `).join('')}
+        </div>
+      `;
+    }
+
     bodyEl.innerHTML = `
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2rem;">
-        <div style="background-color: #f7f9f7; border-radius: var(--radius-lg); padding: 2rem; display: flex; align-items: center; justify-content: center;">
-          <img src="uploads/logo/ceylon-cues-logo.png" style="max-height: 220px; object-fit: contain;">
+        <div style="background-color: #f7f9f7; border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <img id="modal-main-product-img" src="${mainImgUrl}" style="max-height: 220px; object-fit: contain;">
+          ${galleryHtml}
         </div>
         <div>
           <div class="badge badge-gold" style="margin-bottom: 0.5rem;">${(p.quality_tier || 'Standard').toUpperCase()} GRADE</div>
@@ -611,7 +612,7 @@
       bankTransferSection = `
         <div style="background-color: var(--color-gold-subtle); border: 1px solid rgba(198, 161, 91, 0.4); border-radius: var(--radius-lg); padding: 1.25rem; margin-top: 1.5rem;">
           <h4 style="font-size: 1rem; font-weight: 700; color: var(--color-gold-dark); margin-bottom: 0.5rem;">
-            🏦 Bank Transfer Deposit Instructions
+            Bank Transfer Deposit Instructions
           </h4>
           <p style="font-size: 0.85rem; line-height: 1.5; margin-bottom: 0.75rem;">
             Please transfer <strong>${CeylonAPI.formatLKR(order.total_amount)}</strong> to the account below and submit your transfer slip reference:
@@ -707,7 +708,7 @@
       await CeylonAPI.post('/payments/bank-transfer/submit', data);
       resultDiv.innerHTML = `
         <div style="background: #e6f5ee; color: var(--color-primary); padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 700;">
-          ✓ Transfer slip submitted successfully! Our finance team is reviewing your payment.
+          Transfer slip submitted successfully. Our finance team is reviewing your payment.
         </div>
       `;
       form.style.display = 'none';
