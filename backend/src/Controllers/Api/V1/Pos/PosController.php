@@ -217,4 +217,157 @@ final class PosController
             Response::error($e->getMessage(), 404);
         }
     }
+
+    // ── Hold & Resume ──────────────────────────────────────────────────────
+
+    public function holdSale(Request $request): void
+    {
+        $id   = (int)$request->getRouteParam('id');
+        $data = $request->getBody();
+        $v    = Validator::validate($data, ['cart' => 'required']);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+        try {
+            $held = $this->pos->holdSale($id, $data['cart'], $data['label'] ?? null);
+            Response::created($held, 'Sale held');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function listHeldSales(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        try {
+            $held = $this->pos->listHeldSales($id);
+            Response::json($held, 'Held sales retrieved');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function resumeHeldSale(Request $request): void
+    {
+        $sessionId = (int)$request->getRouteParam('id');
+        $heldId    = (int)$request->getRouteParam('held_id');
+        try {
+            $cart = $this->pos->resumeHeldSale($sessionId, $heldId);
+            Response::json($cart, 'Held sale resumed');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    // ── Void Sale ──────────────────────────────────────────────────────────
+
+    public function voidSale(Request $request): void
+    {
+        $id   = (int)$request->getRouteParam('id');
+        $data = $request->getBody();
+        $user = $request->getUser();
+        $v    = Validator::validate($data, [
+            'reason'            => 'required|string',
+            'manager_session_id'=> 'required|integer',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+        try {
+            $result = $this->pos->voidTransaction($id, $data['reason'], (int)$data['manager_session_id'], (int)$user['id']);
+            Response::json($result, 'Sale voided and stock restored');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    // ── Receipt ───────────────────────────────────────────────────────────
+
+    public function receipt(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        try {
+            $data = $this->pos->getReceiptData($id);
+            Response::json($data, 'Receipt data retrieved');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 404);
+        }
+    }
+
+    // ── Terminal Management ───────────────────────────────────────────────
+
+    public function registerTerminal(Request $request): void
+    {
+        $data = $request->getBody();
+        $v    = Validator::validate($data, [
+            'terminal_id'   => 'required|string',
+            'terminal_name' => 'required|string',
+            'location_id'   => 'required|integer',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+        try {
+            $result = $this->pos->registerTerminal($data['terminal_id'], $data['terminal_name'], (int)$data['location_id']);
+            Response::created($result, 'Terminal registered');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function listTerminals(Request $request): void
+    {
+        try {
+            $terminals = $this->pos->listTerminals();
+            Response::json($terminals, 'Terminals retrieved');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    // ── Barcode Label ─────────────────────────────────────────────────────
+
+    public function barcodeLabel(Request $request): void
+    {
+        $id = (int)$request->getRouteParam('id');
+        try {
+            $data = $this->pos->getBarcodeData($id);
+            Response::json($data, 'Barcode data retrieved');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 404);
+        }
+    }
+
+    // ── Exchange ──────────────────────────────────────────────────────────
+
+    public function exchange(Request $request): void
+    {
+        $user = $request->getUser();
+        $data = $request->getBody();
+
+        $v = Validator::validate($data, [
+            'pos_session_id' => 'required|integer',
+            'return_items'   => 'required',
+            'new_items'      => 'required',
+        ]);
+        if (!$v['valid']) {
+            Response::validationError($v['errors']);
+        }
+
+        try {
+            $result = $this->pos->processExchange(
+                (int)$data['pos_session_id'],
+                (int)$user['id'],
+                $data['return_items'],
+                $data['new_items'],
+                $data['payment_method'] ?? 'cash',
+                isset($data['cash_received']) ? (float)$data['cash_received'] : null,
+                $data['customer_name'] ?? 'Walk-in Customer',
+                $data['customer_phone'] ?? '0000000000'
+            );
+            Response::created($result, 'POS exchange processed successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }

@@ -40,21 +40,36 @@ final class PurchaseOrderService
         $shippingCost = (float)($data['shipping_cost'] ?? 0.00);
         $totalAmount = $subtotal + $taxAmount + $shippingCost;
 
+        $currencyCode = strtoupper(trim($data['currency_code'] ?? 'LKR'));
+        $exchangeRate = (float)($data['exchange_rate'] ?? 1.0000);
+        $dutyPercent  = (float)($data['duty_percent'] ?? 0.00);
+        $freightCost  = (float)($data['freight_cost'] ?? 0.00);
+
+        // Calculate landed cost in LKR
+        $subtotalLkr   = $subtotal * $exchangeRate;
+        $dutyAmountLkr = $subtotalLkr * ($dutyPercent / 100.0);
+        $landedCostLkr = round($subtotalLkr + $dutyAmountLkr + $freightCost + ($shippingCost * $exchangeRate), 2);
+
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->prepare("
                 INSERT INTO purchase_orders (
-                    uuid, reference_number, supplier_id, status, expected_date, notes,
-                    subtotal, tax_amount, shipping_cost, total_amount, created_by
+                    uuid, reference_number, supplier_id, currency_code, exchange_rate, duty_percent, freight_cost, landed_cost_lkr,
+                    status, expected_date, notes, subtotal, tax_amount, shipping_cost, total_amount, created_by
                 ) VALUES (
-                    :uuid, :ref, :supplier_id, 'draft', :expected_date, :notes,
-                    :subtotal, :tax_amount, :shipping_cost, :total_amount, :created_by
+                    :uuid, :ref, :supplier_id, :curr, :rate, :duty, :freight, :landed,
+                    'draft', :expected_date, :notes, :subtotal, :tax_amount, :shipping_cost, :total_amount, :created_by
                 )
             ");
             $stmt->execute([
                 ':uuid'          => $uuid,
                 ':ref'           => $refNumber,
                 ':supplier_id'   => (int)$data['supplier_id'],
+                ':curr'          => $currencyCode,
+                ':rate'          => $exchangeRate,
+                ':duty'          => $dutyPercent,
+                ':freight'       => $freightCost,
+                ':landed'        => $landedCostLkr,
                 ':expected_date' => $data['expected_date'] ?? null,
                 ':notes'         => $data['notes'] ?? null,
                 ':subtotal'      => $subtotal,

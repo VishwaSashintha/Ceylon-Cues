@@ -61,6 +61,15 @@ return [
             INDEX `idx_overrides_session` (`session_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+        -- 6b. Manager PIN lockout tracking (created in-band for POS Argon2id lockout)
+        CREATE TABLE IF NOT EXISTS `pos_pin_attempts` (
+            `session_id` BIGINT UNSIGNED NOT NULL,
+            `failed_attempts` INT UNSIGNED NOT NULL DEFAULT 0,
+            `locked_until` TIMESTAMP NULL DEFAULT NULL,
+            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`session_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
         -- 7. Registered POS terminals
         CREATE TABLE IF NOT EXISTS `pos_terminals` (
             `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -222,6 +231,7 @@ return [
         DROP TABLE IF EXISTS `cod_remittances`;
         DROP TABLE IF EXISTS `stock_notification_requests`;
         DROP TABLE IF EXISTS `wishlists`;
+        DROP TABLE IF EXISTS `pos_pin_attempts`;
         DROP TABLE IF EXISTS `pos_terminals`;
         DROP TABLE IF EXISTS `pos_overrides`;
     ",

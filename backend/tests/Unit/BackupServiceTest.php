@@ -26,19 +26,39 @@ final class BackupServiceTest extends TestCase
     {
         $appKey = 'test-app-key-32-bytes-padded!!';
         $key = hash('sha256', $appKey, true);
-        $iv = random_bytes(16);
+        $iv = random_bytes(12);
+        $tag = '';
         $plaintext = "-- SQL DUMP\nINSERT INTO test VALUES (1);\n";
 
-        $ciphertext = openssl_encrypt($plaintext, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        $ciphertext = openssl_encrypt($plaintext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '', 16);
         $this->assertIsString($ciphertext);
+        $this->assertSame(16, strlen($tag));
 
-        $stored = $iv . $ciphertext;
+        $stored = $iv . $tag . $ciphertext;
 
-        $decodedIv = substr($stored, 0, 16);
-        $decodedCipher = substr($stored, 16);
-        $decrypted = openssl_decrypt($decodedCipher, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $decodedIv);
+        $decodedIv = substr($stored, 0, 12);
+        $decodedTag = substr($stored, 12, 16);
+        $decodedCipher = substr($stored, 28);
+        $decrypted = openssl_decrypt($decodedCipher, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $decodedIv, $decodedTag);
 
         $this->assertSame($plaintext, $decrypted);
+    }
+
+    public function testTamperedCiphertextIsRejected(): void
+    {
+        $appKey = 'test-app-key-32-bytes-padded!!';
+        $key = hash('sha256', $appKey, true);
+        $iv = random_bytes(12);
+        $tag = '';
+        $plaintext = "-- SENSITIVE DATA\n";
+
+        $ciphertext = openssl_encrypt($plaintext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+
+        // Tamper with the ciphertext
+        $tamperedCipher = substr_replace($ciphertext, chr(ord($ciphertext[0]) ^ 0xFF), 0, 1);
+
+        $decrypted = openssl_decrypt($tamperedCipher, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+        $this->assertFalse($decrypted);
     }
 
     public function testPurgeOldBackupsDeletesExpiredFiles(): void

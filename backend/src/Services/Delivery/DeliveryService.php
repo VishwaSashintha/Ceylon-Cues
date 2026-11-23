@@ -167,19 +167,50 @@ final class DeliveryService
 
     public function updateOrderFulfillment(int $orderId, array $data, int $updatedBy): array
     {
-        $stmt = $this->db->prepare("
-            UPDATE orders 
-            SET tracking_number = :track, notes = CONCAT(COALESCE(notes, ''), ' [Carrier: ', :carrier, ']'), updated_at = NOW()
-            WHERE id = :id
-        ");
-        $stmt->execute([
-            ':track'   => $data['tracking_number'] ?? null,
-            ':carrier' => $data['carrier_name'] ?? 'Local Courier',
+        $carrier = $data['carrier_name'] ?? 'Local Courier';
+        $trackingNumber = $data['carrier_tracking_number'] ?? $data['tracking_number'] ?? null;
+        $status = $data['status'] ?? null;
+
+        $updates = [
+            'carrier_name = :carrier',
+            'carrier_tracking_number = :track',
+            'tracking_number = :track',
+            'updated_at = NOW()',
+        ];
+        $params = [
+            ':carrier' => $carrier,
+            ':track'   => $trackingNumber,
             ':id'      => $orderId,
-        ]);
+        ];
+
+        if ($status) {
+            $updates[] = 'status = :status';
+            $params[':status'] = $status;
+        }
+
+        $setSql = implode(', ', $updates);
+        $this->db->prepare("UPDATE orders SET {$setSql} WHERE id = :id")->execute($params);
 
         $stmtOrder = $this->db->prepare("SELECT * FROM orders WHERE id = :id");
         $stmtOrder->execute([':id' => $orderId]);
-        return $stmtOrder->fetch();
+        $order = $stmtOrder->fetch(PDO::FETCH_ASSOC);
+
+        // Send customer email if shipped
+        if (($status === 'shipped' || !empty($trackingNumber)) && !empty($order['customer_email'])) {
+            try {
+                $mailer = new \CeylonCues\Services\Mail\MailService();
+                $mailer->sendOrderShipped(
+                    $order['customer_email'],
+                    $order['customer_name'] ?? 'Valued Customer',
+                    $order['reference_number'] ?? (string)$orderId,
+                    $carrier,
+                    $trackingNumber ?? 'N/A'
+                );
+            } catch (\Throwable) {
+                // Email logging handled inside MailService
+            }
+        }
+
+        return $order ?: [];
     }
 }

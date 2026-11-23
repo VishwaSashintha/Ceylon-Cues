@@ -57,6 +57,16 @@ final class ProductService
         $countStmt->execute($params);
         $total = (int)$countStmt->fetchColumn();
 
+        $allowedSort = [
+            'created_at'   => 'p.created_at',
+            'retail_price' => 'p.retail_price',
+            'name'         => 'p.name',
+            'is_featured'  => 'p.is_featured',
+        ];
+        $sortByCol = $allowedSort[$filters['sort_by'] ?? ''] ?? 'p.is_featured DESC, p.created_at';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
+        $orderBySql = ($sortByCol === 'p.is_featured DESC, p.created_at') ? "{$sortByCol} {$sortOrder}" : "{$sortByCol} {$sortOrder}";
+
         $sql = "
             SELECT p.*, c.name as category_name, s.company_name as supplier_name,
                    COALESCE(osa.allocated_quantity, 0) as online_stock,
@@ -67,7 +77,7 @@ final class ProductService
             LEFT JOIN suppliers s ON p.supplier_id = s.id
             LEFT JOIN online_stock_allocations osa ON p.id = osa.product_id
             WHERE {$whereSql}
-            ORDER BY p.is_featured DESC, p.created_at DESC
+            ORDER BY {$orderBySql}
             LIMIT :limit OFFSET :offset
         ";
 
@@ -86,11 +96,21 @@ final class ProductService
             $item['variants'] = $this->getProductVariants((int)$item['id']);
         }
 
+        $totalPages = (int)ceil($total / max($perPage, 1));
+
         return [
-            'items' => $items,
-            'total' => $total,
-            'page' => $page,
-            'per_page' => $perPage,
+            'items'      => $items,
+            'total'      => $total,
+            'page'       => $page,
+            'per_page'   => $perPage,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page'     => $perPage,
+                'total_items'  => $total,
+                'total_pages'  => $totalPages,
+                'has_next'     => $page < $totalPages,
+                'has_prev'     => $page > 1,
+            ],
         ];
     }
 
@@ -138,11 +158,13 @@ final class ProductService
             INSERT INTO products (
                 uuid, sku, barcode, name, slug, category_id, supplier_id,
                 description, specifications, quality_tier, cost_price, retail_price,
-                wholesale_price, weight_kg, is_active, is_published, is_featured, min_wholesale_qty
+                wholesale_price, weight_kg, is_active, is_published, is_featured, min_wholesale_qty,
+                meta_title, meta_description
             ) VALUES (
                 :uuid, :sku, :barcode, :name, :slug, :category_id, :supplier_id,
                 :description, :specifications, :quality_tier, :cost_price, :retail_price,
-                :wholesale_price, :weight_kg, :is_active, :is_published, :is_featured, :min_wholesale_qty
+                :wholesale_price, :weight_kg, :is_active, :is_published, :is_featured, :min_wholesale_qty,
+                :meta_title, :meta_description
             )
         ");
 
@@ -165,6 +187,8 @@ final class ProductService
             ':is_published'      => (int)($data['is_published'] ?? 1),
             ':is_featured'       => (int)($data['is_featured'] ?? 0),
             ':min_wholesale_qty' => (int)($data['min_wholesale_qty'] ?? 1),
+            ':meta_title'        => $data['meta_title'] ?? null,
+            ':meta_description'  => $data['meta_description'] ?? null,
         ]);
 
         $productId = (int)$this->db->lastInsertId();
@@ -228,7 +252,8 @@ final class ProductService
         $allowedFields = [
             'name', 'category_id', 'supplier_id', 'description', 'quality_tier',
             'cost_price', 'retail_price', 'wholesale_price', 'weight_kg',
-            'is_active', 'is_published', 'is_featured', 'min_wholesale_qty', 'barcode'
+            'is_active', 'is_published', 'is_featured', 'min_wholesale_qty', 'barcode',
+            'meta_title', 'meta_description'
         ];
 
         foreach ($allowedFields as $field) {
@@ -319,7 +344,15 @@ final class ProductService
     {
         $stmt = $this->db->prepare("SELECT * FROM product_images WHERE product_id = :pid ORDER BY is_primary DESC, sort_order ASC");
         $stmt->execute([':pid' => $productId]);
-        return $stmt->fetchAll();
+        $images = $stmt->fetchAll();
+        $appUrl = rtrim($_ENV['APP_URL'] ?? 'http://localhost/ceylon-cues', '/');
+        foreach ($images as &$img) {
+            $path = $img['file_path'] ?? '';
+            $img['url'] = (!empty($path) && !str_starts_with($path, 'http'))
+                ? $appUrl . '/' . ltrim($path, '/')
+                : $path;
+        }
+        return $images;
     }
 
     public function getProductVariants(int $productId): array

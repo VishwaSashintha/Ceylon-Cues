@@ -21,10 +21,10 @@ final class KokoAdapter implements PaymentGatewayInterface
     {
         $txId = 'KOKO-' . strtoupper(bin2hex(random_bytes(8)));
         return [
-            'status'                  => 'completed',
+            'status'                  => 'pending',
             'provider'                => 'KOKO_PAY',
             'provider_transaction_id' => $txId,
-            'message'                 => 'KOKO BNPL installment payment approved in sandbox mode',
+            'message'                 => 'KOKO BNPL installment initiated in sandbox mode — awaiting webhook confirmation',
         ];
     }
 
@@ -46,6 +46,11 @@ final class KokoAdapter implements PaymentGatewayInterface
         $signature = $_SERVER['HTTP_X_WEBHOOK_SIGNATURE']
             ?? $_SERVER['HTTP_X_KOKO_SIGNATURE']
             ?? '';
+
+        $timestamp = (int)($_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? 0);
+        if ($timestamp > 0 && abs(time() - $timestamp) > 300) {
+            throw new RuntimeException('Webhook timestamp is too old — possible replay attack');
+        }
 
         $secret   = $_ENV['WEBHOOK_SECRET'] ?? '';
         $expected = hash_hmac('sha256', $rawBody, $secret);

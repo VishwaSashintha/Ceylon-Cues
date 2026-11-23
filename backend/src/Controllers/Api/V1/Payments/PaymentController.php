@@ -141,11 +141,28 @@ final class PaymentController
 
     /**
      * GET /api/v1/payments/bank-transfers/{id}/proof (Customer Owner or ERP Finance/Owner)
+     *
+     * Supports both Authorization: Bearer <token> header AND ?token=<token> query param
+     * so the ERP can embed the proof image directly as <img src="...?token=...">
      */
     public function getProof(Request $request): void
     {
-        $id = (int)$request->getRouteParam('id');
+        $id   = (int)$request->getRouteParam('id');
         $user = $request->getUser();
+
+        // Fall back to ?token= query param when no Bearer header was sent
+        if (!$user) {
+            $queryToken = $_GET['token'] ?? '';
+            if ($queryToken !== '') {
+                try {
+                    $authService = new \CeylonCues\Services\Auth\AuthService();
+                    $user = $authService->validateSession($queryToken);
+                } catch (\Throwable) {
+                    $user = null;
+                }
+            }
+        }
+
         if (!$user) {
             Response::unauthorized();
         }
@@ -158,6 +175,7 @@ final class PaymentController
             header('Content-Length: ' . filesize($filePath));
             header('Content-Disposition: inline; filename="' . basename($filePath) . '"');
             header('X-Content-Type-Options: nosniff');
+            header('Cache-Control: private, no-store');
             readfile($filePath);
             exit;
         } catch (Exception $e) {

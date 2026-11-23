@@ -267,6 +267,15 @@ final class CustomerService
 
             $this->db->prepare("DELETE FROM sessions WHERE user_id = :uid")->execute([':uid' => $customerId]);
 
+            // Anonymise order PII while preserving financial totals and invoice numbers
+            $this->db->prepare("
+                UPDATE orders
+                SET customer_name  = '[Anonymised]',
+                    customer_phone = '[Anonymised]',
+                    updated_at     = NOW()
+                WHERE user_id = :uid
+            ")->execute([':uid' => $customerId]);
+
             $this->db->prepare("
                 INSERT INTO audit_logs
                     (user_id, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent)

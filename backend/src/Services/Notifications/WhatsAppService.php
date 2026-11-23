@@ -42,8 +42,10 @@ final class WhatsAppService
             $cleanPhone = '+94' . substr($cleanPhone, 1);
         }
 
+        $isLocalDev = in_array($_ENV['APP_ENV'] ?? '', ['local', 'development'], true) || !empty($_ENV['WHATSAPP_TEST_MODE']);
+
         // When running in sandbox or mock mode without live Meta credentials
-        if (!$this->enabled || empty($this->phoneNumberId) || empty($this->accessToken)) {
+        if ($isLocalDev || !$this->enabled || empty($this->phoneNumberId) || empty($this->accessToken)) {
             $mockMessageId = 'wamid.MOCK.' . bin2hex(random_bytes(10));
             Logger::logInfo("WhatsApp Sandbox Mode: Message dispatched to {$cleanPhone}", [
                 'recipient' => $cleanPhone,

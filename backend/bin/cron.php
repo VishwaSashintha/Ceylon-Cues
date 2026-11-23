@@ -20,6 +20,17 @@ use CeylonCues\Services\Settings\BackupService;
 
 Env::load($basePath . '/.env');
 
+$lockDir = $basePath . '/storage/locks';
+if (!is_dir($lockDir)) {
+    @mkdir($lockDir, 0755, true);
+}
+$lockFile = $lockDir . '/cron.lock';
+$lockHandle = fopen($lockFile, 'c+');
+if (!$lockHandle || !flock($lockHandle, LOCK_EX | LOCK_NB)) {
+    echo '[' . date('Y-m-d H:i:s') . '] [cron_lock] Another cron execution is currently running. Exiting to prevent overlap.' . "\n";
+    exit(0);
+}
+
 function cronLog(string $job, string $message): void
 {
     echo '[' . date('Y-m-d H:i:s') . '] [' . $job . '] ' . $message . "\n";
@@ -242,17 +253,106 @@ try {
 }
 
 // -------------------------------------------------------------------------
-// Job G: Audit Log Cleanup
+// Job G: Audit Log Archive (never delete — archive to compressed JSONL)
 // -------------------------------------------------------------------------
 try {
     if (!tableExists($db, 'audit_logs')) {
-        cronLog('audit_log_cleanup', 'Skipped: audit_logs table does not exist.');
+        cronLog('audit_log_archive', 'Skipped: audit_logs table does not exist.');
     } else {
-        $deleted = $db->exec("DELETE FROM audit_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)");
-        cronLog('audit_log_cleanup', "Done: {$deleted} old audit log(s) deleted.");
+        $archiveDir = $basePath . '/storage/archives';
+        if (!is_dir($archiveDir)) {
+            @mkdir($archiveDir, 0750, true);
+        }
+
+        // Archive logs older than 90 days, month by month
+        $months = $db->query("
+            SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym
+            FROM audit_logs
+            WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)
+            GROUP BY ym
+            ORDER BY ym ASC
+        ")->fetchAll(PDO::FETCH_COLUMN);
+
+        $totalArchived = 0;
+        foreach ($months as $ym) {
+            $archiveFile = $archiveDir . '/audit_' . $ym . '.jsonl.gz';
+            $start = $ym . '-01 00:00:00';
+            $end   = date('Y-m-t 23:59:59', strtotime($start));
+
+            $rows = $db->prepare("SELECT * FROM audit_logs WHERE created_at BETWEEN :s AND :e ORDER BY id ASC");
+            $rows->execute([':s' => $start, ':e' => $end]);
+            $logs = $rows->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($logs)) {
+                continue;
+            }
+
+            $gz = gzopen($archiveFile, 'ab');
+            if ($gz === false) {
+                cronLog('audit_log_archive', "WARNING: Cannot open {$archiveFile} for writing.");
+                continue;
+            }
+            foreach ($logs as $log) {
+                gzwrite($gz, json_encode($log, JSON_UNESCAPED_UNICODE) . "\n");
+            }
+            gzclose($gz);
+
+            // Remove archived rows from live table
+            $db->prepare("DELETE FROM audit_logs WHERE created_at BETWEEN :s AND :e")
+               ->execute([':s' => $start, ':e' => $end]);
+
+            $totalArchived += count($logs);
+        }
+
+        cronLog('audit_log_archive', "Done: {$totalArchived} log(s) archived to storage/archives/.");
     }
 } catch (Throwable $e) {
-    cronLog('audit_log_cleanup', 'ERROR: ' . $e->getMessage());
+    cronLog('audit_log_archive', 'ERROR: ' . $e->getMessage());
 }
 
+// -------------------------------------------------------------------------
+// Job H: Abandoned Cart Tracking
+// -------------------------------------------------------------------------
+try {
+    if (!tableExists($db, 'carts') || !tableExists($db, 'notification_queue')) {
+        cronLog('abandoned_cart', 'Skipped: required tables do not exist.');
+    } else {
+        // Mark carts older than 24 hours with items as abandoned and queue email
+        $abandoned = $db->query("
+            SELECT DISTINCT c.user_id, c.session_id, u.email
+            FROM carts c
+            LEFT JOIN users u ON u.id = c.user_id
+            WHERE c.updated_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+              AND c.user_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM notification_queue nq
+                  WHERE nq.event_type = 'abandoned_cart'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(nq.payload, '$.user_id')) = CAST(c.user_id AS CHAR)
+                    AND nq.created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+              )
+        ")->fetchAll();
+
+        $queued = 0;
+        foreach ($abandoned as $row) {
+            if (empty($row['email'])) {
+                continue;
+            }
+            $db->prepare("
+                INSERT INTO notification_queue (channel, recipient, event_type, payload, status, created_at)
+                VALUES ('email', :email, 'abandoned_cart', :payload, 'pending', NOW())
+            ")->execute([
+                ':email'   => $row['email'],
+                ':payload' => json_encode(['user_id' => $row['user_id']], JSON_UNESCAPED_UNICODE),
+            ]);
+            $queued++;
+        }
+        cronLog('abandoned_cart', "Done: {$queued} abandoned cart notification(s) queued.");
+    }
+} catch (Throwable $e) {
+    cronLog('abandoned_cart', 'ERROR: ' . $e->getMessage());
+}
+
+// Release cron lock and exit cleanly
+flock($lockHandle, LOCK_UN);
+fclose($lockHandle);
 exit(0);

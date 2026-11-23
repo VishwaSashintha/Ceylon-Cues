@@ -54,8 +54,9 @@ final class BackupService
         $sqlContent .= "SET FOREIGN_KEY_CHECKS=1;\n";
 
         $key = hash('sha256', $_ENV['APP_KEY'] ?? 'changeme', true);
-        $iv = random_bytes(16);
-        $encrypted = openssl_encrypt($sqlContent, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        $iv = random_bytes(12);
+        $tag = '';
+        $encrypted = openssl_encrypt($sqlContent, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '', 16);
 
         if ($encrypted === false) {
             throw new RuntimeException('Failed to encrypt backup.');
@@ -64,7 +65,7 @@ final class BackupService
         $filename = 'ceylon_cues_backup_' . date('Y-m-d_His') . '.sql.enc';
         $filepath = $this->backupDir . DIRECTORY_SEPARATOR . $filename;
 
-        $written = file_put_contents($filepath, $iv . $encrypted);
+        $written = file_put_contents($filepath, $iv . $tag . $encrypted);
         if ($written === false) {
             throw new RuntimeException("Could not write backup file: {$filepath}");
         }
@@ -87,17 +88,18 @@ final class BackupService
         }
 
         $data = file_get_contents($filepath);
-        if ($data === false || strlen($data) <= 16) {
+        if ($data === false || strlen($data) <= 28) {
             throw new RuntimeException('Backup file is empty or corrupt.');
         }
 
         $key = hash('sha256', $_ENV['APP_KEY'] ?? 'changeme', true);
-        $iv = substr($data, 0, 16);
-        $ciphertext = substr($data, 16);
+        $iv = substr($data, 0, 12);
+        $tag = substr($data, 12, 16);
+        $ciphertext = substr($data, 28);
 
-        $decrypted = openssl_decrypt($ciphertext, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        $decrypted = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
         if ($decrypted === false) {
-            throw new RuntimeException('Failed to decrypt backup. Check APP_KEY.');
+            throw new RuntimeException('Backup file integrity verification failed: corrupted or tampered ciphertext.');
         }
 
         $db = Database::getInstance()->getConnection();

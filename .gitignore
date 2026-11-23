@@ -3,6 +3,8 @@ backend/.env
 backend/storage/logs/*.log
 backend/storage/backups/*
 backend/storage/cache/*
+backend/storage/locks/*
+backend/storage/archives/*
 backend/public/uploads/products/*
 backend/public/uploads/payments/*
 backend/storage/uploads/payments/*
@@ -13,6 +15,8 @@ backend/storage/uploads/payments/*
 !backend/storage/logs/.gitkeep
 !backend/storage/backups/.gitkeep
 !backend/storage/cache/.gitkeep
+!backend/storage/locks/.gitkeep
+!backend/storage/archives/.gitkeep
 *.swp
 *.swo
 .DS_Store

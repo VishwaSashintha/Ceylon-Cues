@@ -134,7 +134,18 @@ final class OrderService
                 }
 
                 if ($channel === 'pos' && $available < $qty) {
-                    throw new RuntimeException("Insufficient shop inventory for '{$product['name']}'. Available in shop: {$available}, Requested: {$qty}");
+                    if (empty($orderData['allow_offline_oversell'])) {
+                        throw new RuntimeException("Insufficient shop inventory for '{$product['name']}'. Available in shop: {$available}, Requested: {$qty}");
+                    }
+                    // Oversell permitted by offline policy — log audit note
+                    $this->db->prepare("
+                        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_values, ip_address, user_agent)
+                        VALUES (:uid, 'offline_oversell_variance', 'inventory_stock', :pid, :vals, '127.0.0.1', 'pos_offline_sync')
+                    ")->execute([
+                        ':uid'  => $createdBy ?: 1,
+                        ':pid'  => $pid,
+                        ':vals' => json_encode(['requested' => $qty, 'available_was' => $available, 'product' => $product['name']]),
+                    ]);
                 }
 
                 // Determine unit price
@@ -252,7 +263,24 @@ final class OrderService
             if ($isOwnTx && $this->db->inTransaction()) {
                 $this->db->commit();
             }
-            return $this->getOrder($orderId);
+
+            $savedOrder = $this->getOrder($orderId);
+            if (!empty($savedOrder['customer_email'])) {
+                try {
+                    $mailer = new \CeylonCues\Services\Mail\MailService();
+                    $mailer->sendOrderConfirmation(
+                        $savedOrder['customer_email'],
+                        $savedOrder['customer_name'] ?? 'Valued Customer',
+                        $savedOrder['reference_number'] ?? (string)$orderId,
+                        (float)$savedOrder['total_amount'],
+                        $savedOrder['items'] ?? []
+                    );
+                } catch (\Throwable) {
+                    // Logged inside MailService
+                }
+            }
+
+            return $savedOrder;
         } catch (\Throwable $e) {
             if ($isOwnTx && $this->db->inTransaction()) {
                 $this->db->rollBack();
@@ -378,7 +406,24 @@ final class OrderService
             if ($isOwnTx && $this->db->inTransaction()) {
                 $this->db->commit();
             }
-            return $this->getOrder($orderId);
+
+            $savedOrder = $this->getOrder($orderId);
+            if (!empty($savedOrder['customer_email'])) {
+                try {
+                    $mailer = new \CeylonCues\Services\Mail\MailService();
+                    $mailer->sendOrderConfirmation(
+                        $savedOrder['customer_email'],
+                        $savedOrder['customer_name'] ?? 'Valued Customer',
+                        $savedOrder['reference_number'] ?? (string)$orderId,
+                        (float)$savedOrder['total_amount'],
+                        $savedOrder['items'] ?? []
+                    );
+                } catch (\Throwable) {
+                    // Logged inside MailService
+                }
+            }
+
+            return $savedOrder;
         } catch (\Throwable $e) {
             if ($isOwnTx && $this->db->inTransaction()) {
                 $this->db->rollBack();

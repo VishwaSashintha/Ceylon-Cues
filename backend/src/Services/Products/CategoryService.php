@@ -21,6 +21,15 @@ final class CategoryService
         $this->db = Database::getInstance()->getConnection();
     }
 
+    private function appendImageUrl(array &$category): void
+    {
+        $appUrl = rtrim($_ENV['APP_URL'] ?? 'http://localhost/ceylon-cues', '/');
+        $path = $category['image_path'] ?? '';
+        $category['image_url'] = (!empty($path) && !str_starts_with($path, 'http'))
+            ? $appUrl . '/' . ltrim($path, '/')
+            : $path;
+    }
+
     public function listCategories(bool $tree = false): array
     {
         $stmt = $this->db->query("
@@ -31,6 +40,9 @@ final class CategoryService
             ORDER BY c.sort_order ASC, c.name ASC
         ");
         $categories = $stmt->fetchAll();
+        foreach ($categories as &$cat) {
+            $this->appendImageUrl($cat);
+        }
 
         if (!$tree) {
             return $categories;
@@ -61,6 +73,9 @@ final class CategoryService
         $stmt = $this->db->prepare("SELECT * FROM categories WHERE {$col} = :id AND deleted_at IS NULL LIMIT 1");
         $stmt->execute([':id' => $identifier]);
         $cat = $stmt->fetch();
+        if ($cat) {
+            $this->appendImageUrl($cat);
+        }
         return $cat ?: null;
     }
 

@@ -107,6 +107,7 @@ final class PosService
                 'discount_amount'        => $discountAmount,
                 'fulfilment_location_id' => $locationId,
                 'delivery_method'        => 'shop_collection',
+                'allow_offline_oversell' => !empty($data['allow_offline_oversell']),
             ], $cashierId);
 
             $orderId    = (int)$order['id'];
@@ -233,6 +234,9 @@ final class PosService
                 }
             }
 
+            $policy = $sale['oversell_policy'] ?? 'allow_and_audit';
+            $allowOversell = ($policy === 'allow_and_audit');
+
             try {
                 $this->processSale(
                     (int)($sale['pos_session_id']),
@@ -245,37 +249,109 @@ final class PosService
                     $sale['customer_phone'] ?? '0000000000',
                     (float)($sale['discount_amount'] ?? 0.00),
                     [
-                        'offline_ref'    => $offlineRef,
-                        'split_payments' => $sale['split_payments'] ?? [],
+                        'offline_ref'            => $offlineRef,
+                        'split_payments'         => $sale['split_payments'] ?? [],
+                        'allow_offline_oversell' => $allowOversell,
                     ]
                 );
                 $processed++;
             } catch (\Throwable $e) {
-                $errors[] = ['index' => $index, 'offline_ref' => $offlineRef, 'error' => $e->getMessage()];
+                $errors[] = ['index' => $index, 'offline_ref' => $offlineRef, 'policy' => $policy, 'error' => $e->getMessage()];
             }
         }
 
         return ['processed' => $processed, 'skipped' => $skipped, 'errors' => $errors];
     }
 
-    public function verifyManagerPin(string $pin, int $sessionId): bool
+    public function setManagerPin(int $userId, string $pin): void
     {
-        $stmt = $this->db->prepare("
-            SELECT id FROM users
-            WHERE role IN ('owner', 'shop_manager')
-              AND manager_pin = SHA2(:pin, 256)
-            LIMIT 1
-        ");
-        $stmt->execute([':pin' => $pin]);
-        $user = $stmt->fetch();
-
-        if (!$user) {
-            return false;
+        if (strlen($pin) < 4 || strlen($pin) > 12) {
+            throw new InvalidArgumentException('Manager PIN must be between 4 and 12 characters');
         }
 
-        $this->recordPosOverride($sessionId, 'pin_verify', (int)$user['id'], null, []);
+        $hash = password_hash($pin, PASSWORD_ARGON2ID, [
+            'memory_cost' => 65536,
+            'time_cost'   => 4,
+            'threads'     => 1,
+        ]);
 
-        return true;
+        $this->db->prepare("UPDATE users SET manager_pin = :hash, updated_at = NOW() WHERE id = :id")
+            ->execute([':hash' => $hash, ':id' => $userId]);
+    }
+
+    public function verifyManagerPin(string $pin, int $sessionId): bool
+    {
+        // Check lockout status
+        $lockStmt = $this->db->prepare("
+            SELECT failed_attempts, locked_until
+            FROM pos_pin_attempts
+            WHERE session_id = :sid
+            LIMIT 1
+        ");
+        $lockStmt->execute([':sid' => $sessionId]);
+        $lock = $lockStmt->fetch();
+
+        if ($lock && !empty($lock['locked_until'])) {
+            if (strtotime($lock['locked_until']) > time()) {
+                $remainingSec = strtotime($lock['locked_until']) - time();
+                $remainingMin = max(1, (int)ceil($remainingSec / 60));
+                throw new RuntimeException("Manager PIN is locked due to repeated failed attempts. Please retry in {$remainingMin} minute(s).");
+            }
+        }
+
+        // Fetch managers with active PINs
+        $stmt = $this->db->prepare("
+            SELECT id, manager_pin
+            FROM users
+            WHERE role IN ('owner', 'shop_manager')
+              AND is_active = 1
+              AND manager_pin IS NOT NULL
+        ");
+        $stmt->execute();
+        $managers = $stmt->fetchAll();
+
+        $verifiedUserId = null;
+        foreach ($managers as $mgr) {
+            if (password_verify($pin, $mgr['manager_pin'])) {
+                $verifiedUserId = (int)$mgr['id'];
+                // Check if rehash needed
+                if (password_needs_rehash($mgr['manager_pin'], PASSWORD_ARGON2ID)) {
+                    $this->setManagerPin($verifiedUserId, $pin);
+                }
+                break;
+            }
+        }
+
+        if ($verifiedUserId !== null) {
+            // Reset lockout attempts on success
+            $this->db->prepare("DELETE FROM pos_pin_attempts WHERE session_id = :sid")
+                ->execute([':sid' => $sessionId]);
+
+            $this->recordPosOverride($sessionId, 'pin_verify', $verifiedUserId, null, []);
+            return true;
+        }
+
+        // Record failed attempt
+        $failedAttempts = ($lock['failed_attempts'] ?? 0) + 1;
+        $lockedUntil = null;
+        if ($failedAttempts >= 5) {
+            $lockedUntil = date('Y-m-d H:i:s', time() + (15 * 60));
+        }
+
+        $this->db->prepare("
+            INSERT INTO pos_pin_attempts (session_id, failed_attempts, locked_until, updated_at)
+            VALUES (:sid, :fails, :lock, NOW())
+            ON DUPLICATE KEY UPDATE
+                failed_attempts = :fails,
+                locked_until    = :lock,
+                updated_at      = NOW()
+        ")->execute([
+            ':sid'   => $sessionId,
+            ':fails' => $failedAttempts,
+            ':lock'  => $lockedUntil,
+        ]);
+
+        return false;
     }
 
     public function recordPosOverride(int $sessionId, string $actionType, int $authorizedByUserId, ?int $transactionId, array $details): int
@@ -528,5 +604,318 @@ final class PosService
             'total_discounts'   => (float)$summary['total_discounts'],
             'currency'          => 'LKR',
         ];
+    }
+
+    // ── Hold & Resume ──────────────────────────────────────────────────────
+
+    public function holdSale(int $sessionId, mixed $cart, ?string $label): array
+    {
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS `pos_held_sales` (
+                `id`         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `session_id` BIGINT UNSIGNED NOT NULL,
+                `label`      VARCHAR(100) DEFAULT NULL,
+                `cart_data`  JSON NOT NULL,
+                `held_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX `idx_held_session` (`session_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $stmt = $this->db->prepare("
+            INSERT INTO pos_held_sales (session_id, label, cart_data)
+            VALUES (:sid, :label, :cart)
+        ");
+        $stmt->execute([
+            ':sid'   => $sessionId,
+            ':label' => $label,
+            ':cart'  => json_encode($cart, JSON_UNESCAPED_UNICODE),
+        ]);
+
+        return ['held_id' => (int)$this->db->lastInsertId(), 'session_id' => $sessionId, 'label' => $label];
+    }
+
+    public function listHeldSales(int $sessionId): array
+    {
+        $stmt = $this->db->prepare("SELECT id, session_id, label, cart_data, held_at FROM pos_held_sales WHERE session_id = :sid ORDER BY held_at DESC");
+        $stmt->execute([':sid' => $sessionId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$row) {
+            $row['cart_data'] = json_decode($row['cart_data'], true);
+        }
+        return $rows;
+    }
+
+    public function resumeHeldSale(int $sessionId, int $heldId): array
+    {
+        $stmt = $this->db->prepare("SELECT * FROM pos_held_sales WHERE id = :id AND session_id = :sid");
+        $stmt->execute([':id' => $heldId, ':sid' => $sessionId]);
+        $held = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$held) {
+            throw new RuntimeException('Held sale not found');
+        }
+        // Remove from held sales when resumed
+        $this->db->prepare("DELETE FROM pos_held_sales WHERE id = :id")->execute([':id' => $heldId]);
+        return ['cart' => json_decode($held['cart_data'], true), 'label' => $held['label']];
+    }
+
+    // ── Void Transaction ───────────────────────────────────────────────────
+
+    public function voidTransaction(int $txId, string $reason, int $managerSessionId, int $cashierId): array
+    {
+        $stmt = $this->db->prepare("SELECT * FROM pos_transactions WHERE id = :id");
+        $stmt->execute([':id' => $txId]);
+        $tx = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$tx) {
+            throw new RuntimeException("POS transaction #{$txId} not found");
+        }
+        if ($tx['voided_at'] ?? null) {
+            throw new RuntimeException("Transaction #{$txId} is already voided");
+        }
+
+        $this->db->beginTransaction();
+        try {
+            // Mark transaction voided
+            $this->db->prepare("UPDATE pos_transactions SET voided_at = NOW(), void_reason = :reason WHERE id = :id")
+                ->execute([':reason' => $reason, ':id' => $txId]);
+
+            // Restore stock
+            if (!empty($tx['order_id'])) {
+                $items = $this->db->prepare("SELECT product_id, variant_id, quantity, location_id FROM order_items WHERE order_id = :oid");
+                $items->execute([':oid' => $tx['order_id']]);
+                foreach ($items->fetchAll() as $item) {
+                    $lid = (int)($item['location_id'] ?? 1);
+                    $this->db->prepare("
+                        UPDATE inventory_stock
+                        SET quantity = quantity + :qty, reserved_quantity = GREATEST(0, reserved_quantity - :qty), updated_at = NOW()
+                        WHERE product_id = :pid AND location_id = :lid
+                    ")->execute([':qty' => (int)$item['quantity'], ':pid' => (int)$item['product_id'], ':lid' => $lid]);
+                }
+            }
+
+            // Record override
+            $this->db->prepare("
+                INSERT INTO pos_overrides (session_id, cashier_id, manager_id, action, amount, reason)
+                VALUES (:sid, :cid, :mid, 'void_sale', :amt, :reason)
+            ")->execute([
+                ':sid'    => (int)$tx['session_id'],
+                ':cid'    => $cashierId,
+                ':mid'    => $managerSessionId,
+                ':amt'    => (float)($tx['total_amount'] ?? 0),
+                ':reason' => $reason,
+            ]);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+
+        return ['transaction_id' => $txId, 'voided' => true];
+    }
+
+    // ── Receipt (80mm Thermal Format) ─────────────────────────────────────
+
+    public function getReceiptData(int $txId): array
+    {
+        $stmt = $this->db->prepare("SELECT pt.*, o.reference_number, o.total_amount, o.tax_amount, o.discount_amount, o.tax_invoice_number FROM pos_transactions pt LEFT JOIN orders o ON pt.order_id = o.id WHERE pt.id = :id");
+        $stmt->execute([':id' => $txId]);
+        $tx = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$tx) throw new RuntimeException("Transaction #{$txId} not found");
+
+        $items = [];
+        if (!empty($tx['order_id'])) {
+            $iStmt = $this->db->prepare("SELECT oi.quantity, oi.unit_price, oi.total_price, p.name, p.barcode FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = :oid");
+            $iStmt->execute([':oid' => $tx['order_id']]);
+            $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        $bizStmt = $this->db->query("SELECT setting_key, setting_value FROM business_settings WHERE setting_key IN ('business_name','shop_address','support_phone','tax_rate_percent')");
+        $biz = [];
+        foreach ($bizStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $biz[$r['setting_key']] = $r['setting_value'];
+        }
+
+        return [
+            'business'         => $biz,
+            'transaction_id'   => $txId,
+            'reference'        => $tx['reference_number'],
+            'tax_invoice'      => $tx['tax_invoice_number'],
+            'terminal_id'      => $tx['terminal_id'] ?? null,
+            'served_by'        => $tx['served_by'] ?? null,
+            'items'            => $items,
+            'subtotal'         => (float)$tx['total_amount'],
+            'discount'         => (float)($tx['discount_amount'] ?? 0),
+            'tax'              => (float)($tx['tax_amount'] ?? 0),
+            'total'            => (float)$tx['total_amount'],
+            'payment_method'   => $tx['payment_method'] ?? null,
+            'cash_tendered'    => isset($tx['cash_tendered']) ? (float)$tx['cash_tendered'] : null,
+            'change_given'     => isset($tx['change_given']) ? (float)$tx['change_given'] : null,
+            'created_at'       => $tx['created_at'],
+            'paper_width_mm'   => 80,
+        ];
+    }
+
+    // ── Terminal Management ───────────────────────────────────────────────
+
+    public function registerTerminal(string $terminalId, string $terminalName, int $locationId): array
+    {
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS `pos_terminals` (
+                `id`           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `terminal_id`  VARCHAR(50) NOT NULL UNIQUE,
+                `name`         VARCHAR(100) NOT NULL,
+                `location_id`  BIGINT UNSIGNED NOT NULL,
+                `is_active`    BOOLEAN NOT NULL DEFAULT 1,
+                `registered_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                `last_seen_at`  TIMESTAMP NULL DEFAULT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $this->db->prepare("
+            INSERT INTO pos_terminals (terminal_id, name, location_id)
+            VALUES (:tid, :name, :lid)
+            ON DUPLICATE KEY UPDATE name = VALUES(name), location_id = VALUES(location_id), last_seen_at = NOW()
+        ")->execute([':tid' => $terminalId, ':name' => $terminalName, ':lid' => $locationId]);
+
+        return ['terminal_id' => $terminalId, 'name' => $terminalName, 'location_id' => $locationId];
+    }
+
+    public function listTerminals(): array
+    {
+        return $this->db->query("SELECT * FROM pos_terminals ORDER BY registered_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // ── Exchanges ─────────────────────────────────────────────────────────
+
+    public function processExchange(
+        int $sessionId,
+        int $cashierId,
+        array $returnItems,
+        array $newItems,
+        string $paymentMethod = 'cash',
+        ?float $cashReceived = null,
+        ?string $customerName = 'Walk-in Customer',
+        ?string $customerPhone = '0000000000'
+    ): array {
+        $session = $this->getSession($sessionId);
+        if (!$session || $session['closed_at'] !== null) {
+            throw new RuntimeException('Active POS session required');
+        }
+
+        $locationId = (int)$session['location_id'];
+        $year = date('Y');
+
+        $this->db->beginTransaction();
+        try {
+            // 1. Process return items (restock back to shop location)
+            $totalReturnCredit = 0.00;
+            foreach ($returnItems as $rItem) {
+                $pid = (int)$rItem['product_id'];
+                $qty = (int)$rItem['quantity'];
+                $price = (float)$rItem['unit_price'];
+                $vid = !empty($rItem['variant_id']) ? (int)$rItem['variant_id'] : null;
+                $reason = $rItem['reason'] ?? 'Customer exchange';
+
+                $itemCredit = $qty * $price;
+                $totalReturnCredit += $itemCredit;
+
+                // Add physical stock back to shop
+                $this->db->prepare("
+                    UPDATE inventory_stock
+                    SET quantity = quantity + :qty, updated_at = NOW()
+                    WHERE product_id = :pid AND location_id = :lid AND (variant_id = :vid OR (variant_id IS NULL AND :vid2 IS NULL))
+                ")->execute([':qty' => $qty, ':pid' => $pid, ':lid' => $locationId, ':vid' => $vid, ':vid2' => $vid]);
+
+                // Record return movement
+                $cost = (float)$this->db->query("SELECT cost_price FROM products WHERE id = {$pid}")->fetchColumn();
+                $this->db->prepare("
+                    INSERT INTO stock_movements (product_id, variant_id, location_id, movement_type, quantity, unit_cost, notes, created_by)
+                    VALUES (:pid, :vid, :lid, 'return', :qty, :cost, :notes, :by)
+                ")->execute([
+                    ':pid'   => $pid,
+                    ':vid'   => $vid,
+                    ':lid'   => $locationId,
+                    ':qty'   => $qty,
+                    ':cost'  => $cost,
+                    ':notes' => "POS Exchange return: {$reason}",
+                    ':by'    => $cashierId,
+                ]);
+            }
+
+            // 2. Process new purchase items via orderService
+            $order = $this->orderService->createOrder([
+                'channel'                => 'pos',
+                'customer_name'          => $customerName ?: 'Walk-in Customer',
+                'customer_phone'         => $customerPhone ?: '0000000000',
+                'items'                  => $newItems,
+                'discount_amount'        => 0.00,
+                'fulfilment_location_id' => $locationId,
+                'delivery_method'        => 'shop_collection',
+            ], $cashierId);
+
+            $newOrderTotal = (float)$order['total_amount'];
+            $netDifference = $newOrderTotal - $totalReturnCredit;
+
+            $changeGiven = 0.00;
+            if ($netDifference > 0) {
+                // Customer must pay difference
+                if ($paymentMethod === 'cash') {
+                    if ($cashReceived === null || $cashReceived < $netDifference) {
+                        throw new RuntimeException("Cash received (LKR {$cashReceived}) is less than exchange balance (LKR {$netDifference})");
+                    }
+                    $changeGiven = $cashReceived - $netDifference;
+                }
+            }
+
+            $txCount = (int)$this->db->query("SELECT COUNT(*) FROM pos_transactions WHERE reference_number LIKE 'CC-POS-{$year}-%'")->fetchColumn() + 1;
+            $posRef  = sprintf('CC-POS-%s-%06d', $year, $txCount);
+            $uuid    = Uuid::v4();
+            $exchangeRef = 'EXC-' . bin2hex(random_bytes(4));
+
+            $stmtTx = $this->db->prepare("
+                INSERT INTO pos_transactions (
+                    uuid, reference_number, session_id, order_id, cashier_id, location_id,
+                    transaction_type, return_amount, exchange_ref, payment_method, cash_received, change_given
+                ) VALUES (
+                    :uuid, :ref, :sid, :oid, :cid, :lid,
+                    'exchange', :ret_amt, :exc_ref, :pmethod, :crecv, :cchange
+                )
+            ");
+            $stmtTx->execute([
+                ':uuid'     => $uuid,
+                ':ref'      => $posRef,
+                ':sid'      => $sessionId,
+                ':oid'      => (int)$order['id'],
+                ':cid'      => $cashierId,
+                ':lid'      => $locationId,
+                ':ret_amt'  => $totalReturnCredit,
+                ':exc_ref'  => $exchangeRef,
+                ':pmethod'  => $paymentMethod,
+                ':crecv'    => $cashReceived,
+                ':cchange'  => $changeGiven,
+            ]);
+
+            $txId = (int)$this->db->lastInsertId();
+
+            $this->db->commit();
+
+            return [
+                'transaction_id'       => $txId,
+                'pos_reference'        => $posRef,
+                'exchange_reference'   => $exchangeRef,
+                'return_credit'        => $totalReturnCredit,
+                'new_purchase_total'   => $newOrderTotal,
+                'net_amount_due'       => max(0.00, $netDifference),
+                'store_credit_refund'  => $netDifference < 0 ? abs($netDifference) : 0.00,
+                'cash_received'        => $cashReceived,
+                'change_given'         => $changeGiven,
+                'order'                => $order,
+            ];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
     }
 }

@@ -7,10 +7,25 @@ namespace CeylonCues\Core;
 /**
  * HTTP Response helper.
  *
- * Provides static methods for consistent JSON API responses.
+ * All responses follow a consistent envelope:
+ *   {
+ *     "success": bool,
+ *     "message": string,
+ *     "data": mixed|null,
+ *     "errors": object|null,
+ *     "meta": { "timestamp": "ISO8601", "version": "1.0" }
+ *   }
  */
 final class Response
 {
+    private static function meta(): array
+    {
+        return [
+            'timestamp' => date('c'),
+            'version'   => '1.0',
+        ];
+    }
+
     /**
      * Send a JSON success response.
      *
@@ -27,11 +42,10 @@ final class Response
         $response = [
             'success' => $statusCode >= 200 && $statusCode < 300,
             'message' => $message,
+            'data'    => $data,
+            'errors'  => null,
+            'meta'    => self::meta(),
         ];
-
-        if ($data !== null) {
-            $response['data'] = $data;
-        }
 
         echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
@@ -40,9 +54,9 @@ final class Response
     /**
      * Send a JSON error response.
      *
-     * @param string   $message    Error message
-     * @param int      $statusCode HTTP status code
-     * @param array    $errors     Validation errors or additional details
+     * @param string $message    Error message
+     * @param int    $statusCode HTTP status code
+     * @param array  $errors     Validation errors or additional details
      */
     public static function error(string $message = 'Error', int $statusCode = 400, array $errors = []): never
     {
@@ -53,11 +67,10 @@ final class Response
         $response = [
             'success' => false,
             'message' => $message,
+            'data'    => null,
+            'errors'  => !empty($errors) ? $errors : null,
+            'meta'    => self::meta(),
         ];
-
-        if (!empty($errors)) {
-            $response['errors'] = $errors;
-        }
 
         echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
@@ -66,11 +79,11 @@ final class Response
     /**
      * Send a paginated JSON response.
      *
-     * @param array $items      Items for the current page
-     * @param int   $total      Total number of items
-     * @param int   $page       Current page number
-     * @param int   $perPage    Items per page
-     * @param string $message   Human-readable message
+     * @param array  $items   Items for the current page
+     * @param int    $total   Total number of items
+     * @param int    $page    Current page number
+     * @param int    $perPage Items per page
+     * @param string $message Human-readable message
      */
     public static function paginated(
         array $items,
@@ -82,8 +95,8 @@ final class Response
         $totalPages = (int) ceil($total / max($perPage, 1));
 
         self::json([
-            'items'       => $items,
-            'pagination'  => [
+            'items'      => $items,
+            'pagination' => [
                 'current_page' => $page,
                 'per_page'     => $perPage,
                 'total_items'  => $total,
