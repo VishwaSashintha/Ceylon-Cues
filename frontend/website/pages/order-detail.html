@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Details — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+  <style>
+    .cc-order-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+      padding: 32px 48px;
+    }
+    .cc-timeline {
+      display: flex;
+      justify-content: space-between;
+      position: relative;
+      margin: 24px 0 32px;
+    }
+    .cc-timeline::before {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 20px;
+      right: 20px;
+      height: 3px;
+      background: var(--border-color);
+      z-index: 1;
+    }
+    .cc-timeline-step {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      flex: 1;
+    }
+    .cc-timeline-dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #E5E7EB;
+      color: #6B7280;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .cc-timeline-step.completed .cc-timeline-dot {
+      background: var(--primary);
+      color: #fff;
+    }
+    .cc-timeline-step.active .cc-timeline-dot {
+      background: var(--gold-dark);
+      color: var(--dark);
+      box-shadow: 0 0 0 4px var(--primary-tint);
+    }
+    .cc-timeline-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .cc-timeline-step.completed .cc-timeline-label,
+    .cc-timeline-step.active .cc-timeline-label {
+      color: var(--text-main);
+    }
+    @media (max-width: 860px) {
+      .cc-order-grid {
+        grid-template-columns: 1fr;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active=""></div>
+
+  <!-- Header -->
+  <div style="background:#fff; border-bottom:1px solid var(--border-color); padding:24px 48px;">
+    <div class="m" style="margin-bottom:6px;">
+      <a href="../index.html">Home</a> &nbsp;/&nbsp; <a href="account.html">Account</a> &nbsp;/&nbsp; <span id="bc-ord-num">Order Details</span>
+    </div>
+    <div class="r" style="flex-wrap:wrap; gap:12px;">
+      <div>
+        <h1 class="h" style="font-size:30px;" id="order-title">Loading Order...</h1>
+        <div class="m" id="order-placed-date">Placed on ...</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="p" id="order-status-badge" style="font-size:14px; padding:6px 14px;">PENDING</span>
+        <button class="b bo" id="btn-download-invoice" style="height:40px; font-size:13px;" onclick="downloadInvoice()">
+          📄 Download Tax Invoice (PDF)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cc-order-grid">
+    <!-- Left Column: Timeline & Items -->
+    <div>
+      <!-- Status Timeline Card -->
+      <div class="c" style="margin-bottom:24px;">
+        <h2 style="font-size:17px; margin:0 0 16px;">Order Progress</h2>
+        <div class="cc-timeline" id="order-timeline">
+          <div class="cc-timeline-step completed" id="step-1">
+            <div class="cc-timeline-dot">✓</div>
+            <div class="cc-timeline-label">Order Placed</div>
+          </div>
+          <div class="cc-timeline-step" id="step-2">
+            <div class="cc-timeline-dot">2</div>
+            <div class="cc-timeline-label">Payment Verified</div>
+          </div>
+          <div class="cc-timeline-step" id="step-3">
+            <div class="cc-timeline-dot">3</div>
+            <div class="cc-timeline-label">Processing / Packed</div>
+          </div>
+          <div class="cc-timeline-step" id="step-4">
+            <div class="cc-timeline-dot">4</div>
+            <div class="cc-timeline-label">With Courier</div>
+          </div>
+          <div class="cc-timeline-step" id="step-5">
+            <div class="cc-timeline-dot">5</div>
+            <div class="cc-timeline-label">Delivered</div>
+          </div>
+        </div>
+
+        <div id="courier-tracking-box" style="display:none; padding:14px; background:var(--primary-tint); border-radius:var(--radius-md); border-left:4px solid var(--primary);">
+          <b style="font-size:14px; color:var(--text-main);">Courier Delivery In Transit:</b>
+          <div class="m" style="margin-top:4px; font-size:13px;">
+            Courier: <b id="tracking-courier-name">Pronto / Domex / Fardar</b> · 
+            Tracking Number: <b id="tracking-waybill" style="color:var(--primary); font-family:monospace; font-size:14px;">-</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items Table Card -->
+      <div class="c">
+        <h2 style="font-size:17px; margin:0 0 16px;">Ordered Items</h2>
+        <div class="cc-table-container">
+          <table class="cc-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Unit Price</th>
+                <th style="text-align:center;">Quantity</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody id="order-items-tbody">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Shipping & Payment Info -->
+    <div>
+      <!-- Delivery Destination Card -->
+      <div class="c" style="margin-bottom:24px;">
+        <h2 style="font-size:17px; margin:0 0 14px;">Delivery Destination</h2>
+        <div style="font-size:14px; line-height:1.6;">
+          <b id="dest-name">-</b><br>
+          <span class="m">WhatsApp Phone: </span><b id="dest-phone">-</b><br>
+          <span class="m">Email: </span><span id="dest-email">-</span><br>
+          <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border-color);">
+            <div class="m">Address:</div>
+            <div id="dest-address" style="font-weight:500;">-</div>
+            <div id="dest-district" class="m">-</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Breakdown Card -->
+      <div class="c">
+        <h2 style="font-size:17px; margin:0 0 14px;">Payment Summary</h2>
+        <div class="r" style="margin-bottom:8px; font-size:14px;">
+          <span class="m">Subtotal</span>
+          <span id="bill-subtotal">LKR 0.00</span>
+        </div>
+        <div class="r" style="margin-bottom:8px; font-size:14px;">
+          <span class="m">Delivery Fee</span>
+          <span id="bill-delivery">LKR 0.00</span>
+        </div>
+        <div class="r" id="bill-discount-row" style="display:none; margin-bottom:8px; font-size:14px; color:var(--primary);">
+          <span>Discount</span>
+          <span id="bill-discount">-LKR 0.00</span>
+        </div>
+        <div class="r" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border-color); font:700 20px var(--font-heading);">
+          <span>Total Paid / Due</span>
+          <span id="bill-grand-total" style="color:var(--primary);">LKR 0.00</span>
+        </div>
+
+        <div style="margin-top:16px; padding:12px; background:var(--bg-page); border-radius:var(--radius-md); font-size:13px;">
+          <span class="m">Payment Method:</span><br>
+          <b id="bill-payment-method" style="text-transform:uppercase;">-</b>
+          <div id="bill-payment-status" class="m" style="margin-top:4px;">-</div>
+        </div>
+
+        <!-- Bank Slip Upload if Pending -->
+        <div id="slip-upload-prompt" style="display:none; margin-top:16px; padding:14px; border:1px dashed var(--gold-dark); border-radius:var(--radius-md); background:var(--gold-light);">
+          <b style="font-size:13px; color:var(--text-main); display:block; margin-bottom:4px;">Upload Bank Transfer Slip</b>
+          <p class="m" style="font-size:12px; margin-bottom:8px;">Attach your deposit slip or transfer screenshot so accounts can verify your payment.</p>
+          <input type="file" id="order-slip-file" accept="image/*,.pdf" class="i" style="font-size:12px; height:38px; padding-top:6px;">
+          <button class="b" style="width:100%; height:38px; font-size:13px; margin-top:8px;" onclick="uploadOrderSlip()">Submit Slip for Verification</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    let currentOrder = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('id');
+
+    async function loadOrderDetail() {
+      if (!orderId) {
+        window.location.href = 'account.html';
+        return;
+      }
+
+      try {
+        const ord = await WebsiteAPI.getOrder(orderId);
+        currentOrder = ord;
+        renderOrder(ord);
+      } catch (err) {
+        console.error('Failed to load order:', err);
+        document.getElementById('order-title').textContent = 'Order Not Found';
+        Utils.showToast(err.message || 'Unable to retrieve order details.', 'error');
+      }
+    }
+
+    function renderOrder(ord) {
+      const orderNum = ord.order_number || `CC-ORD-${ord.id}`;
+      document.title = `${orderNum} — Ceylon Cues`;
+      document.getElementById('bc-ord-num').textContent = orderNum;
+      document.getElementById('order-title').textContent = `Order ${orderNum}`;
+      document.getElementById('order-placed-date').textContent = `Placed on ${Utils.formatDate(ord.created_at, true)}`;
+
+      // Status Badge
+      const status = (ord.status || 'pending').toLowerCase();
+      const badge = document.getElementById('order-status-badge');
+      badge.textContent = status.toUpperCase().replace('_', ' ');
+      if (status === 'delivered') badge.className = 'p success';
+      else if (status === 'cancelled') badge.className = 'p error';
+      else if (status === 'shipped' || status === 'processing') badge.className = 'p info';
+      else badge.className = 'p';
+
+      // Update Timeline Steps
+      updateTimeline(status);
+
+      // Courier info
+      if (ord.tracking_number || ord.carrier) {
+        document.getElementById('courier-tracking-box').style.display = 'block';
+        document.getElementById('tracking-courier-name').textContent = ord.carrier || 'Standard Courier';
+        document.getElementById('tracking-waybill').textContent = ord.tracking_number || 'Pending Generation';
+      }
+
+      // Ordered Items
+      const items = ord.items || [];
+      const tbody = document.getElementById('order-items-tbody');
+      tbody.innerHTML = items.map(item => `
+        <tr>
+          <td>
+            <b>${Utils.escapeHtml(item.product_name || item.name || 'Equipment')}</b>
+            <div class="m">SKU: ${Utils.escapeHtml(item.sku || '-')}</div>
+          </td>
+          <td>${Utils.formatLKR(item.unit_price)}</td>
+          <td style="text-align:center;">${item.quantity}</td>
+          <td style="text-align:right; font-weight:700;">${Utils.formatLKR((item.unit_price || 0) * (item.quantity || 1))}</td>
+        </tr>
+      `).join('');
+
+      // Recipient
+      document.getElementById('dest-name').textContent = ord.customer_name || '-';
+      document.getElementById('dest-phone').textContent = ord.customer_phone || '-';
+      document.getElementById('dest-email').textContent = ord.customer_email || '-';
+      document.getElementById('dest-address').textContent = ord.shipping_address || '-';
+      document.getElementById('dest-district').textContent = `${ord.shipping_city || ''}, ${ord.shipping_district || ''}`;
+
+      // Bill Summary
+      const sub = parseFloat(ord.subtotal || ord.items_subtotal || 0);
+      const delivery = parseFloat(ord.delivery_fee || 0);
+      const total = parseFloat(ord.total_amount || ord.grand_total || 0);
+
+      document.getElementById('bill-subtotal').textContent = Utils.formatLKR(sub);
+      document.getElementById('bill-delivery').textContent = delivery === 0 ? 'FREE' : Utils.formatLKR(delivery);
+      document.getElementById('bill-grand-total').textContent = Utils.formatLKR(total);
+
+      document.getElementById('bill-payment-method').textContent = (ord.payment_method || 'Bank Transfer').replace('_', ' ');
+      document.getElementById('bill-payment-status').textContent = `Status: ${(ord.payment_status || 'Pending').toUpperCase()}`;
+
+      // Show slip prompt if bank transfer and unverified
+      if (ord.payment_method === 'bank_transfer' && ord.payment_status !== 'paid') {
+        document.getElementById('slip-upload-prompt').style.display = 'block';
+      }
+    }
+
+    function updateTimeline(status) {
+      const steps = ['step-1', 'step-2', 'step-3', 'step-4', 'step-5'];
+      steps.forEach(s => document.getElementById(s).className = 'cc-timeline-step');
+
+      document.getElementById('step-1').className = 'cc-timeline-step completed';
+
+      if (status === 'processing') {
+        document.getElementById('step-2').className = 'cc-timeline-step completed';
+        document.getElementById('step-3').className = 'cc-timeline-step active';
+      } else if (status === 'shipped') {
+        document.getElementById('step-2').className = 'cc-timeline-step completed';
+        document.getElementById('step-3').className = 'cc-timeline-step completed';
+        document.getElementById('step-4').className = 'cc-timeline-step active';
+      } else if (status === 'delivered') {
+        steps.forEach(s => document.getElementById(s).className = 'cc-timeline-step completed');
+      } else {
+        document.getElementById('step-2').className = 'cc-timeline-step active';
+      }
+    }
+
+    async function uploadOrderSlip() {
+      const file = document.getElementById('order-slip-file').files[0];
+      if (!file) {
+        Utils.showToast('Please select a payment slip file first.', 'error');
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('order_id', orderId);
+        formData.append('slip', file);
+        await window.API.upload('/payments/bank-transfer/submit', formData);
+        Utils.showToast('Payment slip uploaded successfully for accounts verification!', 'success');
+        document.getElementById('slip-upload-prompt').style.display = 'none';
+        loadOrderDetail();
+      } catch (err) {
+        Utils.showToast(err.message || 'Failed to upload payment slip.', 'error');
+      }
+    }
+
+    function downloadInvoice() {
+      const token = Auth.getToken();
+      const url = `${API.getBaseUrl()}/orders/${orderId}/invoice?token=${encodeURIComponent(token || '')}`;
+      window.open(url, '_blank');
+    }
+
+    loadOrderDetail();
+  </script>
+</body>
+</html>

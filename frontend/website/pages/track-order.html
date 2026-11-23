@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Your Order — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+  <style>
+    .cc-track-container {
+      max-width: 760px;
+      margin: 48px auto;
+      padding: 0 24px;
+    }
+  </style>
+</head>
+<body>
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active="track"></div>
+
+  <main class="cc-track-container">
+    <div style="text-align:center; margin-bottom:32px;">
+      <h1 class="h" style="font-size:36px;">Track Your Delivery</h1>
+      <p class="m" style="margin-top:8px; font-size:15px;">
+        Enter your Ceylon Cues tracking token or order number to check real-time dispatch and courier status.
+      </p>
+    </div>
+
+    <!-- Search Form Card -->
+    <div class="c" style="padding:32px; margin-bottom:32px;">
+      <form id="track-form" onsubmit="handleTrack(event)">
+        <label for="track-token">Order Tracking Token / Order Number</label>
+        <div style="display:flex; gap:12px; margin-top:8px;">
+          <input id="track-token" class="i" placeholder="e.g. CC-ORD-2026-000001 or 32-char token" required style="font-size:16px; height:50px;">
+          <button type="submit" class="b bg" id="btn-track-submit" style="height:50px; padding:0 28px; font-size:15px;">
+            Track Order
+          </button>
+        </div>
+        <span class="m" style="display:block; margin-top:8px; font-size:12px;">
+          Found on your order confirmation SMS, WhatsApp update, or email receipt.
+        </span>
+      </form>
+    </div>
+
+    <!-- Result Container -->
+    <div id="track-result-container" style="display:none;">
+      <!-- Populated by JS -->
+    </div>
+  </main>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    // Check if token in URL query
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialToken = urlParams.get('token') || urlParams.get('order');
+    if (initialToken) {
+      document.getElementById('track-token').value = initialToken;
+      executeTrack(initialToken);
+    }
+
+    function handleTrack(e) {
+      e.preventDefault();
+      const token = document.getElementById('track-token').value.trim();
+      if (!token) return;
+      executeTrack(token);
+    }
+
+    async function executeTrack(token) {
+      const btn = document.getElementById('btn-track-submit');
+      const resContainer = document.getElementById('track-result-container');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="cc-spinner"></span>`;
+
+      try {
+        const data = await WebsiteAPI.trackOrder(token);
+        btn.disabled = false;
+        btn.innerHTML = `Track Order`;
+
+        const status = (data.status || 'pending').toLowerCase();
+        let badgeClass = '';
+        if (status === 'delivered') badgeClass = 'success';
+        else if (status === 'cancelled') badgeClass = 'error';
+        else if (status === 'shipped' || status === 'processing') badgeClass = 'info';
+
+        resContainer.style.display = 'block';
+        resContainer.innerHTML = `
+          <div class="c" style="padding:28px;">
+            <div class="r" style="border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:20px;">
+              <div>
+                <b style="font-size:20px; font-family:var(--font-heading);">${Utils.escapeHtml(data.order_number || token)}</b>
+                <div class="m">Estimated Delivery: <b>${data.estimated_delivery || '1 - 3 Business Days'}</b></div>
+              </div>
+              <span class="p ${badgeClass}" style="font-size:13px; padding:6px 14px;">${status.toUpperCase().replace('_', ' ')}</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
+              <div>
+                <span class="m">Delivery Method:</span>
+                <div style="font-weight:600; margin-top:2px;">${data.delivery_method === 'shop' ? 'Pickup from Colombo 03 Shop' : 'Island-wide Courier'}</div>
+              </div>
+              <div>
+                <span class="m">Destination City:</span>
+                <div style="font-weight:600; margin-top:2px;">${Utils.escapeHtml(data.shipping_city || 'Colombo')}, Sri Lanka</div>
+              </div>
+              <div>
+                <span class="m">Assigned Courier:</span>
+                <div style="font-weight:600; margin-top:2px;">${Utils.escapeHtml(data.carrier || 'Domestic Express Courier')}</div>
+              </div>
+              <div>
+                <span class="m">Waybill / Tracking No:</span>
+                <div style="font-weight:700; color:var(--primary); font-family:monospace; margin-top:2px;">
+                  ${Utils.escapeHtml(data.tracking_number || 'Processing in Warehouse')}
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:16px; background:var(--primary-tint); border-radius:var(--radius-md); font-size:13px;" class="m">
+              📞 Questions regarding your delivery? Contact our Colombo customer care on WhatsApp <b>+94 77 123 4567</b>.
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `Track Order`;
+        resContainer.style.display = 'block';
+        resContainer.innerHTML = `
+          <div class="c cc-empty-state">
+            <div style="font-size:36px;">⚠️</div>
+            <h3>No tracking record found</h3>
+            <p class="m">Please check that the order number or token matches your confirmation SMS / email.</p>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

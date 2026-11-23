@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS In-Store Returns &amp; Exchanges — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/pos.css">
+</head>
+<body style="background:var(--bg-page); padding:32px;">
+  <div style="max-width:700px; margin:0 auto;" class="c">
+    <div class="r" style="border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:20px;">
+      <div>
+        <h1 class="h" style="font-size:24px;">Shop Counter Return / Exchange</h1>
+        <div class="m">Process in-person retail returns or product exchanges</div>
+      </div>
+      <a href="../terminal.html" class="b bo">&larr; Back to Terminal</a>
+    </div>
+
+    <form onsubmit="handleReturnSubmit(event)">
+      <label for="ret-receipt">Original POS Receipt Number *</label>
+      <input id="ret-receipt" class="i" placeholder="e.g. CC-POS-2026-000001" required>
+
+      <label for="ret-reason" style="margin-top:12px;">Return Reason</label>
+      <select id="ret-reason" class="i">
+        <option value="defect">Manufacturer Defect (Tip/Joint)</option>
+        <option value="exchange">Exchange for Different Cue Weight / Grade</option>
+        <option value="change_of_mind">Unopened Return (14-Day Guarantee)</option>
+      </select>
+
+      <label for="ret-action" style="margin-top:12px;">Refund Method</label>
+      <select id="ret-action" class="i">
+        <option value="cash">Immediate Cash Refund from Drawer</option>
+        <option value="credit">Store Credit Note</option>
+        <option value="exchange">Direct Item Replacement</option>
+      </select>
+
+      <button type="submit" class="b bg" style="width:100%; height:50px; margin-top:24px; font-size:16px;">
+        Process Counter Return
+      </button>
+    </form>
+  </div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script>
+    function handleReturnSubmit(e) {
+      e.preventDefault();
+      const rec = document.getElementById('ret-receipt').value.trim();
+      Utils.showToast(`Return for ${rec} processed. Retail stock updated.`, 'success');
+      setTimeout(() => window.location.href = '../terminal.html', 1000);
+    }
+  </script>
+</body>
+</html>

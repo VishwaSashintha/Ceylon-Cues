@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Sales Summary (Z-Report) — Ceylon Cues POS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/pos.css">
+</head>
+<body style="background:var(--bg-page); padding:32px;">
+  <div style="max-width:700px; margin:0 auto;" class="c">
+    <div class="r" style="border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:20px;">
+      <div>
+        <h1 class="h" style="font-size:24px;">Daily Sales Summary (Z-Report)</h1>
+        <div class="m">Colombo Retail Shop Register · Terminal #01</div>
+      </div>
+      <button class="b bo" onclick="window.print()">🖨️ Print Summary</button>
+    </div>
+
+    <div style="font-size:14px; line-height:1.8;">
+      <div class="r" style="padding:6px 0; border-bottom:1px solid var(--border-color);">
+        <span class="m">Shift Date / Time:</span>
+        <b id="ds-date">Today</b>
+      </div>
+      <div class="r" style="padding:6px 0; border-bottom:1px solid var(--border-color);">
+        <span class="m">Cashier On Duty:</span>
+        <b>Shop Cashier</b>
+      </div>
+      <div class="r" style="padding:6px 0; border-bottom:1px solid var(--border-color);">
+        <span class="m">Opening Cash Float:</span>
+        <b>LKR 10,000.00</b>
+      </div>
+      <div class="r" style="padding:6px 0; border-bottom:1px solid var(--border-color);">
+        <span class="m">Cash Sales Revenue:</span>
+        <b>LKR 28,500.00</b>
+      </div>
+      <div class="r" style="padding:6px 0; border-bottom:1px solid var(--border-color);">
+        <span class="m">Card Sales Revenue:</span>
+        <b>LKR 42,000.00</b>
+      </div>
+      <div class="r" style="padding:6px 0; border-bottom:1px solid var(--border-color);">
+        <span class="m">Direct Bank Transfers:</span>
+        <b>LKR 15,350.00</b>
+      </div>
+      <div class="r" style="padding:10px 0; border-bottom:1px solid var(--border-color); font:700 20px var(--font-heading);">
+        <span>Total Shift Gross Revenue:</span>
+        <span style="color:var(--primary);">LKR 85,850.00</span>
+      </div>
+      <div class="r" style="padding:8px 0; margin-top:8px; font-weight:700;">
+        <span>Expected Cash in Drawer (Float + Cash Sales):</span>
+        <span>LKR 38,500.00</span>
+      </div>
+    </div>
+
+    <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border-color); text-align:center;">
+      <a href="../terminal.html" class="b">Return to Terminal &rarr;</a>
+    </div>
+  </div>
+</body>
+</html>

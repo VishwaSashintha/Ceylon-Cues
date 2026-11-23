@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register Physical Terminal — Ceylon Cues POS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/pos.css">
+</head>
+<body style="background:var(--bg-page); padding:32px;">
+  <div style="max-width:600px; margin:0 auto;" class="c">
+    <div class="r" style="border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:20px;">
+      <div>
+        <h1 class="h" style="font-size:24px;">Register Terminal Device</h1>
+        <div class="m">Authorize this browser/device as an official retail counter terminal</div>
+      </div>
+      <a href="../terminal.html" class="b bo">&larr; Terminal</a>
+    </div>
+
+    <form onsubmit="handleRegisterTerminal(event)">
+      <label for="dev-name">Terminal Identifier Name *</label>
+      <input id="dev-name" class="i" value="Colombo Counter 01 (Desktop)" required>
+
+      <label for="dev-loc" style="margin-top:12px;">Location</label>
+      <input id="dev-loc" class="i" value="Physical Retail Shop (Colombo 03)" readonly style="background:#F9FAFB;">
+
+      <label for="dev-pin" style="margin-top:12px;">Manager Authorization PIN *</label>
+      <input id="dev-pin" type="password" maxlength="4" class="i" placeholder="••••" required>
+
+      <button type="submit" class="b" style="width:100%; height:48px; margin-top:24px;">
+        Register Device as Active Terminal
+      </button>
+    </form>
+  </div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script>
+    function handleRegisterTerminal(e) {
+      e.preventDefault();
+      Utils.showToast('Terminal registered and paired with physical retail shop inventory!', 'success');
+      setTimeout(() => window.location.href = '../terminal.html', 1000);
+    }
+  </script>
+</body>
+</html>

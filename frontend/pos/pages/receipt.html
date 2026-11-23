@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>80mm Thermal Receipt — Ceylon Cues</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      color: #000;
+      background: #eee;
+    }
+    .receipt {
+      width: 76mm;
+      background: #fff;
+      padding: 16px 12px;
+      margin: 0 auto;
+      border: 1px solid #ccc;
+    }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .bold { font-weight: bold; }
+    .divider { border-top: 1px dashed #000; margin: 10px 0; }
+    .row { display: flex; justify-content: space-between; margin: 4px 0; }
+    @media print {
+      body { background: none; padding: 0; }
+      .receipt { border: none; width: 76mm; margin: 0; padding: 0; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="receipt">
+    <div class="center">
+      <div style="font-size: 18px;" class="bold">CEYLON CUES</div>
+      <div>Billiards &amp; Pool Equipment</div>
+      <div style="font-size: 11px; margin-top: 2px;">
+        No. 45, Galle Road, Colombo 03<br>
+        Tel: +94 77 123 4567<br>
+        VAT / Tax Reg: CC-89104-VAT
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="row"><span>Receipt #:</span><b id="r-serial">CC-POS-2026-000001</b></div>
+    <div class="row"><span>Date:</span><span id="r-date">2026-11-23 14:30</span></div>
+    <div class="row"><span>Cashier:</span><span id="r-cashier">Shop Cashier</span></div>
+    <div class="divider"></div>
+
+    <div id="r-items">
+      <div class="row"><span>Pool Cue Chalk &times; 1</span><span class="bold">5,000.00</span></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="row bold" style="font-size: 15px;">
+      <span>TOTAL DUE</span>
+      <span id="r-total">LKR 5,000.00</span>
+    </div>
+    <div class="row">
+      <span>Payment Method:</span>
+      <span id="r-method">CASH</span>
+    </div>
+    <div class="row">
+      <span>Tendered:</span>
+      <span id="r-tendered">5,000.00</span>
+    </div>
+    <div class="row">
+      <span>Change Due:</span>
+      <span id="r-change">0.00</span>
+    </div>
+
+    <div class="divider"></div>
+    <div class="center" style="font-size: 11px; line-height: 1.4;">
+      Customer Care: +94 77 123 4567<br>
+      Warranty coverage on all standard cues.<br>
+      Thank you for shopping with Ceylon Cues!
+    </div>
+  </div>
+
+  <div class="center no-print" style="margin-top: 20px;">
+    <button onclick="window.print()" style="padding: 10px 24px; font-weight: bold; cursor: pointer;">
+      🖨️ Print 80mm Thermal Receipt
+    </button>
+  </div>
+</body>
+</html>

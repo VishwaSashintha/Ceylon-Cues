@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS Transactions History — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/pos.css">
+</head>
+<body style="background:var(--bg-page); padding:32px;">
+  <div style="max-width:960px; margin:0 auto;" class="c">
+    <div class="r" style="border-bottom:1px solid var(--border-color); padding-bottom:16px; margin-bottom:20px;">
+      <div>
+        <h1 class="h" style="font-size:24px;">Register Transaction History</h1>
+        <div class="m">Today's physical shop counter sales and void history</div>
+      </div>
+      <a href="../terminal.html" class="b bo">&larr; Back to Terminal</a>
+    </div>
+
+    <div class="cc-table-container">
+      <table class="cc-table">
+        <thead>
+          <tr>
+            <th>Receipt #</th>
+            <th>Time</th>
+            <th>Items</th>
+            <th>Method</th>
+            <th>Total (LKR)</th>
+            <th>Status</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>CC-POS-2026-000001</b></td>
+            <td>14:25</td>
+            <td>Pool Cue Chalk &times; 1</td>
+            <td>CASH</td>
+            <td><b>LKR 5,000.00</b></td>
+            <td><span class="p success">COMPLETED</span></td>
+            <td style="text-align:right;">
+              <a href="receipt.html" target="_blank" class="b bo" style="height:30px; font-size:12px; padding:0 8px;">Receipt</a>
+              <button class="b bo" style="height:30px; font-size:12px; padding:0 8px; color:var(--status-error-text);" onclick="handleVoidSale('CC-POS-2026-000001')">Void</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/pos-api.js"></script>
+  <script>
+    function handleVoidSale(receiptNum) {
+      Utils.showConfirm('Void Counter Sale', `Void transaction ${receiptNum}? This will restore physical shop stock and requires manager PIN.`, () => {
+        Utils.showToast(`Transaction ${receiptNum} voided. Stock returned to retail inventory.`, 'success');
+      }, 'Void Sale', true);
+    }
+  </script>
+</body>
+</html>

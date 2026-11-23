@@ -1,0 +1,237 @@
+/* Reset & Base Typography */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100%;
+  font-family: var(--font-body);
+  color: var(--text-main);
+  background: var(--bg-page);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: 0;
+  background: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: 15px;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Sample-matching Atomic Utility Classes */
+.b {
+  height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  font: 600 15px var(--font-body);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.b:hover {
+  background: var(--primary-light);
+}
+.b:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bo {
+  background: #fff;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+.bo:hover {
+  background: var(--primary-tint);
+}
+
+.bg {
+  background: var(--gold-dark);
+  color: var(--dark);
+  font-weight: 700;
+}
+.bg:hover {
+  background: var(--gold);
+}
+
+.c {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.h {
+  margin: 0;
+  font: 700 28px var(--font-heading);
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.m {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.i {
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  width: 100%;
+  background: #fff;
+  transition: var(--transition);
+}
+.i:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(6, 78, 59, 0.12);
+}
+
+textarea.i {
+  height: auto;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.r {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 14px 0 4px;
+  color: var(--text-main);
+}
+
+.t {
+  font: 700 20px var(--font-heading);
+  letter-spacing: .08em;
+}
+
+.p {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--status-pending-bg);
+  color: var(--status-pending-text);
+}
+.p.success {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+.p.error {
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
+}
+.p.info {
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
+}
+
+.s {
+  width: 240px;
+  background: var(--dark);
+  padding: 24px 12px;
+  box-sizing: border-box;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.s a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  color: var(--text-on-dark);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  transition: var(--transition);
+  margin-bottom: 2px;
+}
+.s a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.s a.on {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.o {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-top: 8px;
+  cursor: pointer;
+  background: #fff;
+  transition: var(--transition);
+}
+.o:hover {
+  border-color: var(--primary);
+}
+.o.on {
+  border: 2px solid var(--primary);
+  background: var(--primary-tint);
+}
+
+/* Accessibility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}

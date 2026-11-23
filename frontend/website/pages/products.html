@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Catalogue — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+  <style>
+    .cc-catalogue-layout {
+      display: flex;
+      gap: 32px;
+      padding: 40px 48px;
+    }
+    .cc-filter-sidebar {
+      width: 260px;
+      flex-shrink: 0;
+    }
+    .cc-filter-section {
+      padding-bottom: 24px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .cc-filter-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--text-main);
+    }
+    .cc-filter-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .cc-filter-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .cc-catalogue-content {
+      flex: 1;
+    }
+    @media (max-width: 860px) {
+      .cc-catalogue-layout {
+        flex-direction: column;
+        padding: 20px;
+      }
+      .cc-filter-sidebar {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active="products"></div>
+
+  <!-- Breadcrumbs & Header -->
+  <div style="background:#fff; border-bottom:1px solid var(--border-color); padding:24px 48px;">
+    <div class="m" style="margin-bottom:8px;">
+      <a href="../index.html">Home</a> &nbsp;/&nbsp; <span>Equipment Catalogue</span>
+    </div>
+    <div class="r" style="flex-wrap:wrap; gap:16px;">
+      <div>
+        <h1 class="h" style="font-size:32px;">Billiards &amp; Pool Catalogue</h1>
+        <p class="m" id="catalogue-subtitle" style="margin-top:4px;">Showing all available cues, chalk, tips, and accessories</p>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <label for="sort-select" class="sr-only">Sort by</label>
+        <select id="sort-select" class="i" style="width:200px; height:40px;" onchange="applyFilters()">
+          <option value="featured">Sort: Featured First</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+          <option value="newest">Newest Arrivals</option>
+          <option value="name_asc">Name: A to Z</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="cc-catalogue-layout">
+    <!-- Filter Sidebar -->
+    <aside class="cc-filter-sidebar">
+      <div class="c" style="padding:20px;">
+        <div class="cc-filter-section">
+          <div class="cc-filter-title">Search</div>
+          <input type="text" id="catalogue-search" class="i" placeholder="Filter by name, SKU..." oninput="debounceSearch()">
+        </div>
+
+        <div class="cc-filter-section">
+          <div class="cc-filter-title">Categories</div>
+          <ul class="cc-filter-list" id="category-filter-list">
+            <li><label class="cc-filter-item"><input type="radio" name="cat" value="" checked onchange="applyFilters()"> All Categories</label></li>
+          </ul>
+        </div>
+
+        <div class="cc-filter-section">
+          <div class="cc-filter-title">Quality Standard</div>
+          <ul class="cc-filter-list">
+            <li><label class="cc-filter-item"><input type="radio" name="tier" value="" checked onchange="applyFilters()"> All Tiers</label></li>
+            <li><label class="cc-filter-item"><input type="radio" name="tier" value="budget" onchange="applyFilters()"> Budget Grade</label></li>
+            <li><label class="cc-filter-item"><input type="radio" name="tier" value="standard" onchange="applyFilters()"> Standard Club</label></li>
+            <li><label class="cc-filter-item"><input type="radio" name="tier" value="premium" onchange="applyFilters()"> Premium Tournament</label></li>
+          </ul>
+        </div>
+
+        <div class="cc-filter-section" style="border-bottom:0; padding-bottom:0; margin-bottom:0;">
+          <div class="cc-filter-title">Availability</div>
+          <label class="cc-filter-item">
+            <input type="checkbox" id="in-stock-only" onchange="applyFilters()"> In Stock Online Only
+          </label>
+        </div>
+
+        <button class="b bo" style="width:100%; margin-top:20px; height:38px; font-size:13px;" onclick="resetFilters()">
+          Reset Filters
+        </button>
+      </div>
+    </aside>
+
+    <!-- Products Content -->
+    <main class="cc-catalogue-content">
+      <div id="products-grid-container" class="cc-product-grid" style="margin-top:0;">
+        <div style="grid-column:1/-1; text-align:center; padding:48px;">
+          <span class="cc-spinner" style="width:32px; height:32px; color:var(--primary);"></span>
+          <p class="m" style="margin-top:12px;">Loading products...</p>
+        </div>
+      </div>
+
+      <div id="pagination-container" style="margin-top:32px;"></div>
+    </main>
+  </div>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    let currentPage = 1;
+    let currentCategories = [];
+
+    // Parse URL params on load
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get('q') || '';
+    const initialCategory = urlParams.get('category') || '';
+    const initialTier = urlParams.get('tier') || '';
+
+    if (initialQuery) {
+      document.getElementById('catalogue-search').value = initialQuery;
+    }
+
+    async function initCatalogue() {
+      await loadCategories();
+      await fetchProducts(1);
+    }
+
+    async function loadCategories() {
+      try {
+        const cats = await WebsiteAPI.getCategories();
+        currentCategories = Array.isArray(cats) ? cats : (cats.items || []);
+        const list = document.getElementById('category-filter-list');
+        
+        let html = `<li><label class="cc-filter-item"><input type="radio" name="cat" value="" ${!initialCategory ? 'checked' : ''} onchange="applyFilters()"> All Categories</label></li>`;
+        currentCategories.forEach(c => {
+          const isSelected = initialCategory && (c.slug === initialCategory || c.name.toLowerCase().includes(initialCategory.toLowerCase()));
+          html += `
+            <li>
+              <label class="cc-filter-item">
+                <input type="radio" name="cat" value="${c.id}" ${isSelected ? 'checked' : ''} onchange="applyFilters()">
+                ${Utils.escapeHtml(c.name)}
+              </label>
+            </li>
+          `;
+        });
+        list.innerHTML = html;
+      } catch (e) {
+        console.warn('Could not load categories:', e);
+      }
+    }
+
+    async function fetchProducts(page = 1) {
+      currentPage = page;
+      const container = document.getElementById('products-grid-container');
+      const pagContainer = document.getElementById('pagination-container');
+      
+      container.innerHTML = `
+        <div style="grid-column:1/-1; text-align:center; padding:48px;">
+          <span class="cc-spinner" style="width:32px; height:32px; color:var(--primary);"></span>
+        </div>
+      `;
+
+      const search = document.getElementById('catalogue-search').value.trim();
+      const selectedCat = document.querySelector('input[name="cat"]:checked')?.value || '';
+      const selectedTier = document.querySelector('input[name="tier"]:checked')?.value || '';
+      const sortVal = document.getElementById('sort-select').value;
+      const inStockOnly = document.getElementById('in-stock-only').checked;
+
+      const params = {
+        page: currentPage,
+        per_page: 12
+      };
+
+      if (search) params.search = search;
+      if (selectedCat) params.category_id = selectedCat;
+      if (selectedTier) params.quality_tier = selectedTier;
+      if (inStockOnly) params.in_stock = 1;
+
+      // Handle Sorting
+      if (sortVal === 'price_asc') { params.sort_by = 'retail_price'; params.sort_dir = 'asc'; }
+      else if (sortVal === 'price_desc') { params.sort_by = 'retail_price'; params.sort_dir = 'desc'; }
+      else if (sortVal === 'newest') { params.sort_by = 'created_at'; params.sort_dir = 'desc'; }
+      else if (sortVal === 'name_asc') { params.sort_by = 'name'; params.sort_dir = 'asc'; }
+
+      try {
+        const response = await WebsiteAPI.getProducts(params);
+        const products = response.items || (Array.isArray(response) ? response : []);
+        const pagination = response.pagination || null;
+
+        document.getElementById('catalogue-subtitle').textContent = `Found ${pagination ? pagination.total_items : products.length} products matching your criteria`;
+
+        if (products.length === 0) {
+          container.innerHTML = `
+            <div style="grid-column:1/-1; text-align:center; padding:64px 20px;" class="cc-empty-state">
+              <div style="font-size:40px;">🔍</div>
+              <h3>No products found</h3>
+              <p class="m">Try adjusting your filters, clearing search terms, or checking another category.</p>
+              <button class="b bo" style="margin-top:16px;" onclick="resetFilters()">View All Products</button>
+            </div>
+          `;
+          pagContainer.innerHTML = '';
+          return;
+        }
+
+        container.innerHTML = products.map(p => {
+          const tier = (p.quality_tier || 'standard').toLowerCase();
+          const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+          const price = Utils.formatLKR(p.retail_price || p.price || 0);
+          const onlineStock = p.online_allocation !== undefined ? p.online_allocation : (p.stock_quantity || 0);
+          
+          let stockHtml = `<span class="cc-product-card-stock in-stock">In stock · ${onlineStock} available</span>`;
+          if (onlineStock <= 0) {
+            stockHtml = `<span class="cc-product-card-stock out-of-stock">Out of stock online</span>`;
+          } else if (onlineStock <= 5) {
+            stockHtml = `<span class="cc-product-card-stock low-stock">Only ${onlineStock} available online</span>`;
+          }
+
+          const imgUrl = p.image_url ? API.getImageUrl(p.image_url) : '';
+          const imgHtml = imgUrl 
+            ? `<img src="${Utils.escapeHtml(imgUrl)}" alt="${Utils.escapeHtml(p.name)}" onerror="this.src=''; this.parentElement.innerHTML='[PRODUCT PHOTO]'">` 
+            : `<span>[PRODUCT PHOTO]</span>`;
+
+          return `
+            <article class="cc-product-card">
+              <div class="cc-product-card-img-wrap">
+                <span class="cc-product-tier-badge ${tier}">${tierLabel}</span>
+                ${imgHtml}
+              </div>
+              <div class="cc-product-card-body">
+                <div class="cc-product-card-cat">${Utils.escapeHtml(p.category_name || 'EQUIPMENT')}</div>
+                <h3 class="cc-product-card-title">
+                  <a href="product-detail.html?id=${p.id}" style="color:inherit;">${Utils.escapeHtml(p.name)}</a>
+                </h3>
+                <div class="cc-product-card-price">${price}</div>
+                ${stockHtml}
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                  <button class="b" style="flex:1;" onclick="addToCart(${p.id}, '${Utils.escapeHtml(p.name).replace(/'/g, "\\'")}', ${p.retail_price || 0}, '${tier}', ${onlineStock})" ${onlineStock <= 0 ? 'disabled' : ''}>
+                    ${onlineStock > 0 ? 'Add to cart' : 'Sold out'}
+                  </button>
+                  <a href="product-detail.html?id=${p.id}" class="b bo" style="padding:0 14px;" title="View Details">&rarr;</a>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+
+        if (pagination) {
+          pagContainer.innerHTML = Utils.renderPagination(pagination, 'fetchProducts');
+        } else {
+          pagContainer.innerHTML = '';
+        }
+      } catch (err) {
+        console.error('Fetch catalogue error:', err);
+        container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:48px;" class="m">Error loading catalogue. Please try again.</div>`;
+      }
+    }
+
+    const debounceSearch = Utils.debounce(() => {
+      fetchProducts(1);
+    }, 350);
+
+    function applyFilters() {
+      fetchProducts(1);
+    }
+
+    function resetFilters() {
+      document.getElementById('catalogue-search').value = '';
+      document.getElementById('in-stock-only').checked = false;
+      document.getElementById('sort-select').value = 'featured';
+      const allCats = document.querySelectorAll('input[name="cat"]');
+      if (allCats.length) allCats[0].checked = true;
+      const allTiers = document.querySelectorAll('input[name="tier"]');
+      if (allTiers.length) allTiers[0].checked = true;
+      fetchProducts(1);
+    }
+
+    window.addToCart = function(id, name, price, tier, stock) {
+      if (stock <= 0) {
+        Utils.showToast('Product sold out online.', 'error');
+        return;
+      }
+      CartState.addItem({
+        id: id,
+        name: name,
+        retail_price: price,
+        quality_tier: tier,
+        online_allocation: stock
+      }, 1);
+    };
+
+    window.changePage = function(page) {
+      fetchProducts(page);
+      window.scrollTo({ top: 120, behavior: 'smooth' });
+    };
+
+    initCatalogue();
+  </script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+/* Ceylon Cues - POS Specific Styles */
+
+.cc-pos-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg-page);
+  color: var(--text-main);
+  user-select: none;
+}
+
+/* Header */
+.cc-pos-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--dark);
+  color: #fff;
+  padding: 12px 24px;
+  border-bottom: 2px solid var(--gold-dark);
+}
+.cc-pos-brand {
+  font: 700 18px var(--font-heading);
+  letter-spacing: .08em;
+}
+.cc-pos-brand span {
+  color: var(--gold);
+}
+.cc-pos-shift-info {
+  color: var(--text-on-dark);
+  font-size: 14px;
+}
+.cc-pos-receipt-counter {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--gold);
+  font-family: monospace;
+  font-weight: 700;
+}
+
+/* Terminal Body */
+.cc-pos-terminal-body {
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  padding: 16px;
+  min-height: 0;
+}
+
+.cc-pos-products-col {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+}
+
+.cc-pos-scan-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 56px;
+  padding: 0 20px;
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-lg);
+  font: inherit;
+  font-size: 18px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+.cc-pos-scan-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(6, 78, 59, 0.2);
+}
+
+.cc-pos-category-bar {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.cc-pos-cat-btn {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid var(--border-input);
+  background: #fff;
+  transition: var(--transition);
+}
+.cc-pos-cat-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.cc-pos-product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(100vh - 210px);
+  padding-right: 4px;
+}
+.cc-pos-item-btn {
+  height: 120px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  text-align: left;
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+.cc-pos-item-btn:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.cc-pos-item-btn:active {
+  background: var(--primary-tint);
+}
+.cc-pos-item-btn b {
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--text-main);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Cart Panel */
+.cc-pos-cart-col {
+  flex: 2;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  max-height: calc(100vh - 100px);
+}
+.cc-pos-cart-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+.cc-pos-cart-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+  align-items: center;
+}
+
+/* Numeric Keypad for Fast Cash Tender */
+.cc-pos-keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+.cc-pos-key-btn {
+  height: 54px;
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font: 700 20px var(--font-heading);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.cc-pos-key-btn:active {
+  background: var(--primary-tint);
+}
+
+/* 80mm Thermal Receipt (Print Styles) */
+.cc-pos-thermal-receipt {
+  width: 340px;
+  background: #fff;
+  padding: 20px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: #000;
+  margin: 0 auto;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .cc-pos-thermal-receipt, .cc-pos-thermal-receipt * {
+    visibility: visible;
+  }
+  .cc-pos-thermal-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+}

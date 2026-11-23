@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saved Wishlist — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+</head>
+<body>
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active=""></div>
+
+  <div style="background:#fff; border-bottom:1px solid var(--border-color); padding:32px 48px;">
+    <div class="m" style="margin-bottom:6px;"><a href="../index.html">Home</a> &nbsp;/&nbsp; <a href="account.html">Account</a> &nbsp;/&nbsp; <span>Wishlist</span></div>
+    <h1 class="h" style="font-size:36px;">Saved Wishlist Items</h1>
+    <p class="m" style="margin-top:6px;">Items you have bookmarked to buy later or monitor for stock arrivals.</p>
+  </div>
+
+  <div style="padding:48px; max-width:1280px; margin:0 auto;">
+    <div id="wishlist-container" class="cc-product-grid" style="margin-top:0;">
+      <!-- Populated by JS -->
+      <div style="grid-column:1/-1; text-align:center; padding:48px;">
+        <span class="cc-spinner" style="width:32px; height:32px; color:var(--primary);"></span>
+        <p class="m" style="margin-top:12px;">Loading wishlist...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    async function loadWishlist() {
+      const container = document.getElementById('wishlist-container');
+      try {
+        const response = await WebsiteAPI.getWishlist();
+        const items = response.items || (Array.isArray(response) ? response : []);
+
+        if (items.length === 0) {
+          container.innerHTML = `
+            <div style="grid-column:1/-1; text-align:center; padding:64px 20px;" class="cc-empty-state">
+              <div style="font-size:48px;">❤️</div>
+              <h3>Your wishlist is empty</h3>
+              <p class="m">Save cues, chalk sets, or cases while browsing to easily access them later.</p>
+              <a href="products.html" class="b" style="margin-top:20px;">Explore Catalogue</a>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = items.map(p => {
+          const tier = (p.quality_tier || 'standard').toLowerCase();
+          const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+          const price = Utils.formatLKR(p.retail_price || p.price || 0);
+          const imgUrl = p.image_url ? API.getImageUrl(p.image_url) : '';
+          const imgHtml = imgUrl 
+            ? `<img src="${Utils.escapeHtml(imgUrl)}" alt="${Utils.escapeHtml(p.name)}">` 
+            : `<span>[PRODUCT PHOTO]</span>`;
+
+          return `
+            <article class="cc-product-card">
+              <div class="cc-product-card-img-wrap">
+                <span class="cc-product-tier-badge ${tier}">${tierLabel}</span>
+                ${imgHtml}
+              </div>
+              <div class="cc-product-card-body">
+                <h3 class="cc-product-card-title">
+                  <a href="product-detail.html?id=${p.id || p.product_id}" style="color:inherit;">${Utils.escapeHtml(p.name || p.product_name)}</a>
+                </h3>
+                <div class="cc-product-card-price">${price}</div>
+                <div style="display:flex; gap:8px; margin-top:16px;">
+                  <button class="b" style="flex:1;" onclick="addToCartAndRemoveWishlist(${p.id || p.product_id}, '${Utils.escapeHtml(p.name || p.product_name).replace(/'/g, "\\'")}', ${p.retail_price || 0})">
+                    Add to Cart
+                  </button>
+                  <button class="b bo" style="padding:0 12px; color:var(--status-error-text);" onclick="removeWishlistItem(${p.id || p.product_id})" title="Remove">
+                    &times;
+                  </button>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `
+          <div style="grid-column:1/-1; text-align:center; padding:48px;" class="m">
+            Please <a href="login.html" style="color:var(--primary); font-weight:600;">sign in</a> to view and sync your saved wishlist items.
+          </div>
+        `;
+      }
+    }
+
+    function addToCartAndRemoveWishlist(id, name, price) {
+      CartState.addItem({ id, name, retail_price: price }, 1);
+      removeWishlistItem(id);
+    }
+
+    async function removeWishlistItem(id) {
+      try {
+        await WebsiteAPI.removeFromWishlist(id);
+        Utils.showToast('Item removed from wishlist.', 'info');
+        loadWishlist();
+      } catch (e) {
+        Utils.showToast('Removed from local wishlist.', 'info');
+        loadWishlist();
+      }
+    }
+
+    loadWishlist();
+  </script>
+</body>
+</html>

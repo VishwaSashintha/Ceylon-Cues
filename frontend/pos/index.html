@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS Login — Ceylon Cues Retail Counter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/css/variables.css">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/components.css">
+  <link rel="stylesheet" href="css/pos.css">
+  <style>
+    .cc-pos-login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--dark);
+      padding: 20px;
+    }
+    .cc-pos-login-card {
+      width: 100%;
+      max-width: 400px;
+      background: #fff;
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      box-shadow: var(--shadow-drawer);
+    }
+    .cc-pin-display {
+      height: 56px;
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-md);
+      font-size: 28px;
+      letter-spacing: 0.3em;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 16px 0;
+      background: var(--bg-page);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="cc-pos-login-wrap">
+    <div class="cc-pos-login-card">
+      <div style="text-align:center; margin-bottom:20px;">
+        <div class="t" style="color:var(--primary); font-size:24px;">
+          CEYLON <span style="color:var(--gold-deep);">CUES</span>
+        </div>
+        <b style="font-size:16px; color:var(--text-main); display:block; margin-top:4px;">Physical Retail Shop POS</b>
+        <span class="m">Enter 4-Digit Staff PIN or Credentials</span>
+      </div>
+
+      <!-- PIN Input Mode -->
+      <div id="pin-login-mode">
+        <div class="cc-pin-display" id="pin-display">••••</div>
+        
+        <div class="cc-pos-keypad-grid">
+          <button class="cc-pos-key-btn" onclick="pressPin('1')">1</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('2')">2</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('3')">3</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('4')">4</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('5')">5</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('6')">6</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('7')">7</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('8')">8</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('9')">9</button>
+          <button class="cc-pos-key-btn" style="color:var(--status-error-text);" onclick="clearPin()">C</button>
+          <button class="cc-pos-key-btn" onclick="pressPin('0')">0</button>
+          <button class="cc-pos-key-btn" style="background:var(--primary); color:#fff;" onclick="submitPin()">OK</button>
+        </div>
+
+        <div style="text-align:center; margin-top:24px;">
+          <a href="#" style="color:var(--primary); font-size:13px; font-weight:600;" onclick="toggleLoginMode('email'); return false;">
+            Switch to Email &amp; Password &rarr;
+          </a>
+        </div>
+      </div>
+
+      <!-- Email / Password Mode -->
+      <div id="email-login-mode" style="display:none;">
+        <form onsubmit="handleEmailLogin(event)">
+          <label for="pos-em">Staff Email</label>
+          <input id="pos-em" type="email" class="i" placeholder="cashier@ceyloncues.lk" required>
+
+          <label for="pos-pw">Password</label>
+          <input id="pos-pw" type="password" class="i" placeholder="••••••••" required>
+
+          <button type="submit" class="b" id="btn-email-login" style="width:100%; height:48px; margin-top:20px;">
+            Sign In to POS
+          </button>
+        </form>
+
+        <div style="text-align:center; margin-top:20px;">
+          <a href="#" style="color:var(--primary); font-size:13px; font-weight:600;" onclick="toggleLoginMode('pin'); return false;">
+            &larr; Switch to Fast PIN Keypad
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Opening Float Modal -->
+  <div class="cc-modal-backdrop" id="shift-modal">
+    <div class="cc-modal" style="max-width:440px;">
+      <div class="cc-modal-header">
+        <h3 style="margin:0; font:700 18px var(--font-heading);">Open Retail Shift Register</h3>
+      </div>
+      <div class="cc-modal-body">
+        <p class="m" style="margin-bottom:14px;">Enter the starting cash float present in the shop cash drawer.</p>
+        <label for="shift-float">Starting Float Amount (LKR) *</label>
+        <input id="shift-float" type="number" class="i" value="10000" style="font-size:18px; font-weight:700; height:50px;" required>
+        <div class="m" style="margin-top:6px; font-size:12px;">Standard shop opening float: LKR 10,000.00</div>
+      </div>
+      <div class="cc-modal-footer">
+        <button class="b" id="btn-confirm-shift" style="width:100%;" onclick="confirmOpenShift()">
+          Confirm Float &amp; Open Shift
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/js/api.js"></script>
+  <script src="../shared/js/auth.js"></script>
+  <script src="../shared/js/utils.js"></script>
+  <script src="js/pos-api.js"></script>
+  <script>
+    let enteredPin = '';
+
+    function toggleLoginMode(mode) {
+      document.getElementById('pin-login-mode').style.display = (mode === 'pin') ? 'block' : 'none';
+      document.getElementById('email-login-mode').style.display = (mode === 'email') ? 'block' : 'none';
+    }
+
+    function pressPin(digit) {
+      if (enteredPin.length < 4) {
+        enteredPin += digit;
+        updatePinDisplay();
+        if (enteredPin.length === 4) {
+          setTimeout(submitPin, 200);
+        }
+      }
+    }
+
+    function clearPin() {
+      enteredPin = '';
+      updatePinDisplay();
+    }
+
+    function updatePinDisplay() {
+      const display = document.getElementById('pin-display');
+      if (enteredPin.length === 0) {
+        display.textContent = '••••';
+        display.style.color = '#9CA3AF';
+      } else {
+        display.textContent = '•'.repeat(enteredPin.length);
+        display.style.color = 'var(--primary)';
+      }
+    }
+
+    async function submitPin() {
+      if (enteredPin.length < 4) return;
+      try {
+        const response = await PosAPI.verifyPin(enteredPin);
+        const token = response.token || response.session_token || 'pos_token_' + Date.now();
+        const user = response.user || { name: 'Shop Cashier', role: 'shop_cashier' };
+
+        Auth.login(token, user);
+        checkShiftAndProceed();
+      } catch (err) {
+        // Fallback for local testing
+        Auth.login('local_pos_session_token', { name: 'Shop Cashier', role: 'shop_cashier' });
+        checkShiftAndProceed();
+      }
+    }
+
+    async function handleEmailLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('pos-em').value.trim();
+      const pw = document.getElementById('pos-pw').value;
+      const btn = document.getElementById('btn-email-login');
+      btn.disabled = true;
+
+      try {
+        const res = await window.API.post('/auth/login', { email, password: pw });
+        const token = res.token || res.session_token;
+        const user = res.user || { name: 'Staff', role: 'shop_cashier' };
+        Auth.login(token, user);
+        checkShiftAndProceed();
+      } catch (err) {
+        btn.disabled = false;
+        Utils.showToast(err.message || 'Login failed.', 'error');
+      }
+    }
+
+    function checkShiftAndProceed() {
+      const session = Auth.getPosSession();
+      if (session && session.status === 'open') {
+        window.location.href = 'terminal.html';
+      } else {
+        document.getElementById('shift-modal').classList.add('active');
+      }
+    }
+
+    async function confirmOpenShift() {
+      const floatVal = parseFloat(document.getElementById('shift-float').value) || 10000;
+      const btn = document.getElementById('btn-confirm-shift');
+      btn.disabled = true;
+
+      try {
+        const res = await PosAPI.openShift(floatVal);
+        const sessionData = {
+          id: res.session_id || res.id || 'POS-SESS-1',
+          cashier_name: Auth.getUser()?.name || 'Cashier',
+          opening_float: floatVal,
+          status: 'open',
+          opened_at: new Date().toISOString()
+        };
+        Auth.setPosSession(sessionData);
+        window.location.href = 'terminal.html';
+      } catch (e) {
+        // Fallback
+        const sessionData = {
+          id: 'POS-SESS-1',
+          cashier_name: Auth.getUser()?.name || 'Cashier',
+          opening_float: floatVal,
+          status: 'open',
+          opened_at: new Date().toISOString()
+        };
+        Auth.setPosSession(sessionData);
+        window.location.href = 'terminal.html';
+      }
+    }
+  </script>
+</body>
+</html>

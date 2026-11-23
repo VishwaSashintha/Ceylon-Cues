@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+</head>
+<body style="background:var(--bg-page);">
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active=""></div>
+
+  <div style="min-height:900px;">
+    <div style="display:flex; gap:24px; padding:32px 48px; max-width:1280px; margin:0 auto;" class="cc-checkout-wrap">
+      
+      <!-- Checkout Form Sections -->
+      <div style="flex:2; display:flex; flex-direction:column; gap:16px;">
+        
+        <!-- 1 · Contact -->
+        <section class="c">
+          <h2 style="margin:0 0 16px; font-size:18px;">1 · Contact Details</h2>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div>
+              <label for="n">Full name *</label>
+              <input id="n" class="i" placeholder="e.g. Sahan Wickramasinghe" required>
+            </div>
+            <div>
+              <label for="ph">Phone (WhatsApp updates) *</label>
+              <input id="ph" class="i" placeholder="e.g. 0771234567" required>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <label for="em">Email address (for tax invoice &amp; receipt) *</label>
+            <input id="em" type="email" class="i" placeholder="sahan@example.com" required>
+          </div>
+        </section>
+
+        <!-- 2 · Delivery -->
+        <section class="c">
+          <h2 style="margin:0 0 16px; font-size:18px;">2 · Delivery Method</h2>
+          <div class="o on" id="opt-delivery-home" onclick="selectDeliveryMethod('home')">
+            <input type="radio" name="dm" checked aria-label="Home delivery">
+            <div>
+              <b>Island-wide Door Delivery</b>
+              <div class="m">Delivered securely via tracked courier service</div>
+            </div>
+          </div>
+          <div class="o" id="opt-delivery-shop" onclick="selectDeliveryMethod('shop')">
+            <input type="radio" name="dm" aria-label="Shop collection">
+            <div>
+              <b>Collect from Shop (Free)</b>
+              <div class="m">Pick up at Colombo 03 Retail Shop (No delivery fee)</div>
+            </div>
+          </div>
+
+          <div id="delivery-address-group" style="margin-top:16px;">
+            <label for="ad">Street Address *</label>
+            <input id="ad" class="i" placeholder="House / Building No, Street Name">
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">
+              <div>
+                <label for="dist">District *</label>
+                <select id="dist" class="i" onchange="recalculateTotals()">
+                  <option value="Colombo">Colombo</option>
+                  <option value="Gampaha">Gampaha</option>
+                  <option value="Kalutara">Kalutara</option>
+                  <option value="Kandy">Kandy</option>
+                  <option value="Galle">Galle</option>
+                  <option value="Matara">Matara</option>
+                  <option value="Kurunegala">Kurunegala</option>
+                  <option value="Anuradhapura">Anuradhapura</option>
+                  <option value="Jaffna">Jaffna</option>
+                  <option value="Other">Other Island-wide</option>
+                </select>
+              </div>
+              <div>
+                <label for="city">City / Postal Town *</label>
+                <input id="city" class="i" placeholder="e.g. Nugegoda">
+              </div>
+            </div>
+
+            <label for="order-notes" style="margin-top:12px;">Special Delivery Instructions (Optional)</label>
+            <input id="order-notes" class="i" placeholder="e.g. Call before delivery, leave with security">
+          </div>
+        </section>
+
+        <!-- 3 · Payment -->
+        <section class="c">
+          <h2 style="margin:0 0 16px; font-size:18px;">3 · Payment Method</h2>
+          
+          <div class="o on" id="opt-pay-bank" onclick="selectPaymentMethod('bank_transfer')">
+            <input type="radio" name="pm" checked aria-label="Bank transfer">
+            <div>
+              <b>Direct Bank Transfer</b>
+              <div class="m">Transfer via online banking or CDM, then upload your slip</div>
+            </div>
+          </div>
+
+          <div class="o" id="opt-pay-card" onclick="selectPaymentMethod('card')">
+            <input type="radio" name="pm" aria-label="Card">
+            <div>
+              <b>Visa / Mastercard Credit or Debit Card</b>
+              <div class="m">Secure online card payment gateway (Sandbox/Local)</div>
+            </div>
+          </div>
+
+          <div class="o" id="opt-pay-koko" onclick="selectPaymentMethod('koko')">
+            <input type="radio" name="pm" aria-label="KOKO">
+            <div>
+              <b>KOKO Buy Now Pay Later</b>
+              <div class="m">Split into 3 interest-free monthly installments</div>
+            </div>
+          </div>
+
+          <div class="o" id="opt-pay-mintpay" onclick="selectPaymentMethod('mintpay')">
+            <input type="radio" name="pm" aria-label="Mintpay">
+            <div>
+              <b>Mintpay</b>
+              <div class="m">Pay in 3 monthly installments with debit card</div>
+            </div>
+          </div>
+
+          <div class="o" id="opt-pay-cod" onclick="selectPaymentMethod('cod')">
+            <input type="radio" name="pm" aria-label="Cash on delivery">
+            <div>
+              <b>Cash on Delivery (COD)</b>
+              <div class="m">Pay cash in hand to courier upon delivery (Valid orders only)</div>
+            </div>
+          </div>
+
+          <!-- Bank Details Instructions Panel -->
+          <div id="bank-transfer-details" style="margin-top:16px; padding:18px; background:var(--primary-tint); border-radius:var(--radius-md); border-left:4px solid var(--primary);" class="m">
+            <b style="color:var(--text-main); font-size:14px; display:block; margin-bottom:4px;">Bank Transfer Details:</b>
+            <div id="bank-info-display">
+              Commercial Bank of Ceylon · Ceylon Cues (Pvt) Ltd<br>
+              Account No: <b>8012345678</b> · Kollupitiya Branch
+            </div>
+            <div style="margin-top:8px; color:var(--text-main);">
+              Your order will wait for verification by our accounts team after you attach your slip.
+            </div>
+
+            <label for="rf" style="margin-top:14px;">Transfer / Reference Number (Optional)</label>
+            <input id="rf" class="i" placeholder="e.g. TXN-8942109">
+
+            <label for="up" style="margin-top:12px;">Payment Slip Photo / Screenshot (Optional at checkout)</label>
+            <input id="up" type="file" accept="image/*,.pdf" class="i" style="padding-top:8px;">
+          </div>
+
+          <div id="card-payment-details" style="display:none; margin-top:16px; padding:16px; background:#F8FAFC; border-radius:var(--radius-md);" class="m">
+            💳 You will be redirected to the secure card gateway to complete payment. In localhost environment, this runs in verified sandbox test mode.
+          </div>
+        </section>
+      </div>
+
+      <!-- Order Summary Aside -->
+      <aside class="c" style="flex:1; align-self:flex-start; position:sticky; top:90px;">
+        <h2 style="margin:0 0 16px; font-size:18px;">Order Summary</h2>
+        
+        <div id="summary-items-list" style="display:flex; flex-direction:column; gap:10px; max-height:280px; overflow-y:auto; padding-right:4px; margin-bottom:16px;">
+          <!-- Items rendered by JS -->
+        </div>
+
+        <label for="cp" style="margin-top:16px;">Discount code</label>
+        <div style="display:flex; gap:8px;">
+          <input id="cp" class="i" placeholder="Promo or VIP code">
+          <button class="b bo" style="height:44px;" onclick="applyCoupon()">Apply</button>
+        </div>
+        <div id="coupon-message" style="font-size:12px; margin-top:4px;"></div>
+
+        <div class="r" style="margin-top:18px;">
+          <span class="m">Product total</span>
+          <span id="summary-prod-total">LKR 0.00</span>
+        </div>
+        <div class="r" style="margin-top:8px;">
+          <span class="m">Delivery</span>
+          <span id="summary-delivery-charge">LKR 350.00</span>
+        </div>
+        <div class="r" id="row-discount" style="display:none; margin-top:8px; color:var(--primary);">
+          <span>Discount</span>
+          <span id="summary-discount-amount">-LKR 0.00</span>
+        </div>
+        <div class="r" style="margin-top:14px; border-top:1px solid var(--border-color); padding-top:14px; font:700 24px var(--font-heading);">
+          <span>Total</span>
+          <span id="summary-grand-total" style="color:var(--primary);">LKR 0.00</span>
+        </div>
+
+        <button class="b bg" id="btn-place-order" style="width:100%; height:56px; margin-top:20px; font-size:17px;" onclick="handlePlaceOrder()">
+          Place Order
+        </button>
+
+        <p class="m" style="text-align:center; margin-top:14px; font-size:12px;">
+          By placing your order, you agree to Ceylon Cues terms of service and warranty policies.
+        </p>
+      </aside>
+    </div>
+  </div>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    let deliveryMethod = 'home';
+    let paymentMethod = 'bank_transfer';
+    let appliedCoupon = null;
+    let deliveryFee = 350;
+    let freeDeliveryThreshold = 15000;
+
+    async function initCheckout() {
+      const items = CartState.getItems();
+      if (!items || items.length === 0) {
+        window.location.href = 'cart.html';
+        return;
+      }
+
+      // Pre-fill user details if logged in
+      if (Auth.isAuthenticated()) {
+        const u = Auth.getUser();
+        if (u) {
+          if (u.name) document.getElementById('n').value = u.name;
+          if (u.email) document.getElementById('em').value = u.email;
+          if (u.phone) document.getElementById('ph').value = u.phone;
+        }
+      }
+
+      // Load bank settings
+      try {
+        const settings = await WebsiteAPI.getSettings();
+        if (settings) {
+          if (settings.bank_name) {
+            document.getElementById('bank-info-display').innerHTML = `
+              <b>${Utils.escapeHtml(settings.bank_name)}</b> · ${Utils.escapeHtml(settings.bank_account_name || 'Ceylon Cues (Pvt) Ltd')}<br>
+              Account No: <b>${Utils.escapeHtml(settings.bank_account_number || '8012345678')}</b> · ${Utils.escapeHtml(settings.bank_branch || 'Colombo')}
+            `;
+          }
+          if (settings.free_delivery_min_order) {
+            freeDeliveryThreshold = parseFloat(settings.free_delivery_min_order);
+          }
+        }
+      } catch (e) {}
+
+      renderSummaryItems();
+      recalculateTotals();
+    }
+
+    function renderSummaryItems() {
+      const items = CartState.getItems();
+      const list = document.getElementById('summary-items-list');
+      
+      list.innerHTML = items.map(i => `
+        <div class="r" style="font-size:14px; padding-bottom:8px; border-bottom:1px solid #F3F4F6;">
+          <span style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            ${Utils.escapeHtml(i.name)} &times; ${i.quantity}
+          </span>
+          <b>${Utils.formatLKR((i.unit_price || 0) * (i.quantity || 1))}</b>
+        </div>
+      `).join('');
+    }
+
+    function selectDeliveryMethod(method) {
+      deliveryMethod = method;
+      document.getElementById('opt-delivery-home').className = method === 'home' ? 'o on' : 'o';
+      document.getElementById('opt-delivery-shop').className = method === 'shop' ? 'o on' : 'o';
+
+      document.getElementById('delivery-address-group').style.display = method === 'shop' ? 'none' : 'block';
+      recalculateTotals();
+    }
+
+    function selectPaymentMethod(pm) {
+      paymentMethod = pm;
+      ['bank', 'card', 'koko', 'mintpay', 'cod'].forEach(m => {
+        const el = document.getElementById(`opt-pay-${m}`);
+        if (el) el.className = (pm === (m === 'bank' ? 'bank_transfer' : m)) ? 'o on' : 'o';
+      });
+
+      document.getElementById('bank-transfer-details').style.display = pm === 'bank_transfer' ? 'block' : 'none';
+      document.getElementById('card-payment-details').style.display = pm === 'card' ? 'block' : 'none';
+    }
+
+    async function recalculateTotals() {
+      const subtotal = CartState.getSubtotal();
+      document.getElementById('summary-prod-total').textContent = Utils.formatLKR(subtotal);
+
+      if (deliveryMethod === 'shop') {
+        deliveryFee = 0;
+        document.getElementById('summary-delivery-charge').textContent = 'Free (Shop Pickup)';
+      } else {
+        const district = document.getElementById('dist').value;
+        if (subtotal >= freeDeliveryThreshold) {
+          deliveryFee = 0;
+          document.getElementById('summary-delivery-charge').textContent = 'Free (Island-wide)';
+        } else {
+          try {
+            const res = await WebsiteAPI.calculateDelivery({ district: district, subtotal: subtotal });
+            deliveryFee = res && res.delivery_fee !== undefined ? parseFloat(res.delivery_fee) : (district === 'Colombo' ? 350 : 550);
+            document.getElementById('summary-delivery-charge').textContent = Utils.formatLKR(deliveryFee);
+          } catch (e) {
+            deliveryFee = district === 'Colombo' ? 350 : 550;
+            document.getElementById('summary-delivery-charge').textContent = Utils.formatLKR(deliveryFee);
+          }
+        }
+      }
+
+      let discountAmount = 0;
+      if (appliedCoupon) {
+        if (appliedCoupon.discount_type === 'percentage') {
+          discountAmount = (subtotal * parseFloat(appliedCoupon.discount_value)) / 100;
+        } else {
+          discountAmount = parseFloat(appliedCoupon.discount_value || 0);
+        }
+        document.getElementById('row-discount').style.display = 'flex';
+        document.getElementById('summary-discount-amount').textContent = `-${Utils.formatLKR(discountAmount)}`;
+      } else {
+        document.getElementById('row-discount').style.display = 'none';
+      }
+
+      const grandTotal = Math.max(0, subtotal + deliveryFee - discountAmount);
+      document.getElementById('summary-grand-total').textContent = Utils.formatLKR(grandTotal);
+    }
+
+    async function applyCoupon() {
+      const code = document.getElementById('cp').value.trim();
+      const msg = document.getElementById('coupon-message');
+      if (!code) {
+        msg.textContent = 'Please enter a coupon code';
+        msg.style.color = 'var(--status-error-text)';
+        return;
+      }
+
+      try {
+        const subtotal = CartState.getSubtotal();
+        const res = await WebsiteAPI.validateCoupon(code, subtotal);
+        appliedCoupon = res;
+        msg.textContent = `Coupon "${code.toUpperCase()}" applied successfully!`;
+        msg.style.color = 'var(--status-success-text)';
+        recalculateTotals();
+      } catch (err) {
+        appliedCoupon = null;
+        msg.textContent = err.message || 'Invalid or expired coupon code.';
+        msg.style.color = 'var(--status-error-text)';
+        recalculateTotals();
+      }
+    }
+
+    async function handlePlaceOrder() {
+      const name = document.getElementById('n').value.trim();
+      const phone = document.getElementById('ph').value.trim();
+      const email = document.getElementById('em').value.trim();
+
+      if (!name || !phone || !email) {
+        Utils.showToast('Please fill in your name, WhatsApp phone, and email.', 'error');
+        return;
+      }
+
+      let address = 'Shop Collection - No. 45 Galle Road, Colombo 03';
+      let district = 'Colombo';
+      let city = 'Colombo';
+
+      if (deliveryMethod === 'home') {
+        address = document.getElementById('ad').value.trim();
+        district = document.getElementById('dist').value;
+        city = document.getElementById('city').value.trim();
+        if (!address || !city) {
+          Utils.showToast('Please provide your street address and city for delivery.', 'error');
+          return;
+        }
+      }
+
+      const btn = document.getElementById('btn-place-order');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="cc-spinner"></span> Processing order...`;
+
+      const items = CartState.getItems().map(i => ({
+        product_id: i.product_id,
+        variant_id: i.variant_id || null,
+        quantity: i.quantity,
+        unit_price: i.unit_price
+      }));
+
+      const payload = {
+        customer_name: name,
+        customer_email: email,
+        customer_phone: phone,
+        delivery_method: deliveryMethod,
+        shipping_address: address,
+        shipping_district: district,
+        shipping_city: city,
+        payment_method: paymentMethod,
+        transfer_reference: document.getElementById('rf')?.value.trim() || '',
+        coupon_code: appliedCoupon ? appliedCoupon.code : null,
+        notes: document.getElementById('order-notes')?.value.trim() || '',
+        items: items
+      };
+
+      try {
+        const orderResult = await WebsiteAPI.placeOrder(payload);
+        const orderId = orderResult.order_id || orderResult.id;
+        const orderNumber = orderResult.order_number || `CC-ORD-${orderId}`;
+
+        // If bank transfer and file slip uploaded, upload slip
+        const slipFile = document.getElementById('up')?.files[0];
+        if (paymentMethod === 'bank_transfer' && slipFile && orderId) {
+          try {
+            const formData = new FormData();
+            formData.append('order_id', orderId);
+            formData.append('slip', slipFile);
+            formData.append('transfer_reference', payload.transfer_reference);
+            await window.API.upload('/payments/bank-transfer/submit', formData);
+          } catch (slipErr) {
+            console.warn('Bank slip upload notice:', slipErr);
+          }
+        }
+
+        CartState.clear();
+        Utils.showToast(`Order ${orderNumber} placed successfully!`, 'success');
+
+        setTimeout(() => {
+          window.location.href = `order-detail.html?id=${orderId}&placed=1`;
+        }, 800);
+      } catch (err) {
+        console.error('Order placement failed:', err);
+        btn.disabled = false;
+        btn.innerHTML = `Place Order`;
+        Utils.showToast(err.message || 'Failed to place order. Please check required fields.', 'error');
+      }
+    }
+
+    initCheckout();
+  </script>
+</body>
+</html>

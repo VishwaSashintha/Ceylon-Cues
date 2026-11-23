@@ -1,0 +1,5 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^api/(.*)$ backend/public/api/$1 [L,QSA]
+    RewriteRule ^uploads/(.*)$ backend/public/uploads/$1 [L,QSA]
+</IfModule>

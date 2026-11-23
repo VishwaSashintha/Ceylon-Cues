@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Categories — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+</head>
+<body>
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active="products"></div>
+
+  <div style="background:#fff; border-bottom:1px solid var(--border-color); padding:32px 48px;">
+    <div class="m" style="margin-bottom:6px;"><a href="../index.html">Home</a> &nbsp;/&nbsp; <span>Categories</span></div>
+    <h1 class="h" style="font-size:36px;">Explore Equipment Categories</h1>
+    <p class="m" style="margin-top:6px;">Browse our full inventory of cues, tips, chalk, cases, tables, and precision accessories.</p>
+  </div>
+
+  <div style="padding:48px; max-width:1280px; margin:0 auto;">
+    <div id="categories-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:24px;">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    async function loadCategories() {
+      const grid = document.getElementById('categories-grid');
+      try {
+        const response = await WebsiteAPI.getCategories();
+        const cats = Array.isArray(response) ? response : (response.items || []);
+
+        const categoryIcons = {
+          'cues': '🥢',
+          'chalk': '🧊',
+          'tips': '🎯',
+          'cases': '💼',
+          'maintenance': '🔧',
+          'tables': '🎱',
+          'cloth': '🟩',
+          'accessories': '⚙️'
+        };
+
+        grid.innerHTML = cats.map(c => {
+          const icon = categoryIcons[c.slug] || '🎱';
+          return `
+            <a href="products.html?category=${c.id}" class="c" style="display:flex; flex-direction:column; padding:28px; text-decoration:none; transition:var(--transition);" onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-3px)'" onmouseout="this.style.borderColor='var(--border-color)'; this.style.transform='none'">
+              <span style="font-size:36px; margin-bottom:12px;">${icon}</span>
+              <h3 style="font-size:20px; font-family:var(--font-heading); margin-bottom:8px; color:var(--text-main);">${Utils.escapeHtml(c.name)}</h3>
+              <p class="m" style="line-height:1.5; margin-bottom:16px;">${Utils.escapeHtml(c.description || 'Precision equipment curated for competitive and home play.')}</p>
+              <div style="margin-top:auto; color:var(--primary); font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px;">
+                Explore Category &rarr;
+              </div>
+            </a>
+          `;
+        }).join('');
+      } catch (e) {
+        console.error('Categories error:', e);
+      }
+    }
+    loadCategories();
+  </script>
+</body>
+</html>

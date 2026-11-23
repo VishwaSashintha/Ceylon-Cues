@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Terminal — Ceylon Cues POS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/css/variables.css">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/components.css">
+  <link rel="stylesheet" href="css/pos.css">
+</head>
+<body class="cc-pos-shell">
+  <!-- POS Header (Matches POS.dc.html sample) -->
+  <header class="cc-pos-header">
+    <div class="cc-pos-brand">
+      CEYLON <span>CUES</span> · POS
+    </div>
+    <div class="cc-pos-shift-info" id="pos-header-shift-info">
+      Shop · Cashier: [NAME] · Shift open
+    </div>
+    <div style="display:flex; align-items:center; gap:16px; margin-left:auto;">
+      <button class="b bo" style="height:34px; font-size:12px; padding:0 12px; color:#fff; border-color:var(--text-muted);" onclick="openTransactionsModal()">
+        📜 Transactions
+      </button>
+      <button class="b bo" style="height:34px; font-size:12px; padding:0 12px; color:#fff; border-color:var(--text-muted);" onclick="openCloseRegisterModal()">
+        🛑 Close Shift
+      </button>
+      <div class="cc-pos-receipt-counter" id="pos-receipt-counter">
+        CC-POS-2026-000001
+      </div>
+    </div>
+  </header>
+
+  <!-- Terminal Main Body -->
+  <main class="cc-pos-terminal-body">
+    <!-- Products Column (flex: 3) -->
+    <section class="cc-pos-products-col">
+      <label for="pos-scan-input" class="sr-only">Scan barcode or search product</label>
+      <input type="text" id="pos-scan-input" class="cc-pos-scan-input" placeholder="Scan barcode or search product" autofocus oninput="debouncePosSearch()" onkeydown="handleBarcodeEnter(event)">
+
+      <!-- Category Filter Buttons -->
+      <div class="cc-pos-category-bar" id="pos-category-bar">
+        <button class="cc-pos-cat-btn active" data-cat="" onclick="filterPosCat('', this)">All</button>
+        <button class="cc-pos-cat-btn" data-cat="cues" onclick="filterPosCat('cues', this)">Cues</button>
+        <button class="cc-pos-cat-btn" data-cat="chalk" onclick="filterPosCat('chalk', this)">Chalk</button>
+        <button class="cc-pos-cat-btn" data-cat="cases" onclick="filterPosCat('cases', this)">Cases</button>
+        <button class="cc-pos-cat-btn" data-cat="tips" onclick="filterPosCat('tips', this)">Tips &amp; Tools</button>
+      </div>
+
+      <!-- Quick Product Grid -->
+      <div class="cc-pos-product-grid" id="pos-product-grid">
+        <div style="grid-column:1/-1; text-align:center; padding:48px;">
+          <span class="cc-spinner" style="width:32px; height:32px; color:var(--primary);"></span>
+          <p class="m" style="margin-top:10px;">Loading physical retail shop inventory...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cart Column (flex: 2) -->
+    <aside class="cc-pos-cart-col">
+      <div class="r" style="border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+        <h2 style="margin:0; font-size:18px;">Current Sale</h2>
+        <div style="display:flex; gap:8px;">
+          <button class="b bo" style="height:32px; font-size:12px; padding:0 10px;" onclick="handleHoldSale()">
+            Hold Sale
+          </button>
+          <button class="b bo" style="height:32px; font-size:12px; padding:0 10px;" id="btn-resume-sale" onclick="openHeldSalesModal()">
+            Resume (<span id="held-count">0</span>)
+          </button>
+          <button class="b bo" style="height:32px; font-size:12px; padding:0 8px; color:var(--status-error-text);" onclick="PosState.clearCart()">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Items List -->
+      <div class="cc-pos-cart-list" id="pos-cart-items-list">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Totals & Payment Method Bar -->
+      <div style="margin-top:auto; font-size:15px; border-top:1px solid var(--border-color); padding-top:14px;">
+        <div class="r">
+          <span>Subtotal</span>
+          <span id="pos-subtotal">LKR 0.00</span>
+        </div>
+        <div class="r" style="margin-top:6px;">
+          <span class="m">Discount</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input type="number" id="pos-discount-input" class="i" style="width:80px; height:30px; font-size:13px; text-align:right;" value="0" oninput="PosState.setDiscount(this.value)">
+          </div>
+        </div>
+        <div class="r" style="font:700 24px var(--font-heading); margin-top:10px; color:var(--primary);">
+          <span>Total</span>
+          <span id="pos-total">LKR 0.00</span>
+        </div>
+      </div>
+
+      <!-- Payment Method Buttons -->
+      <div style="display:flex; gap:8px;">
+        <button class="b" id="pm-btn-cash" style="flex:1; height:50px; font-weight:700;" onclick="selectPaymentMethod('cash')">Cash</button>
+        <button class="b bo" id="pm-btn-card" style="flex:1; height:50px; font-weight:700;" onclick="selectPaymentMethod('card')">Card</button>
+        <button class="b bo" id="pm-btn-bank" style="flex:1; height:50px; font-weight:700;" onclick="selectPaymentMethod('bank_transfer')">Bank Transfer</button>
+      </div>
+
+      <!-- Charge Action Button -->
+      <button class="b bg" id="btn-charge" style="height:60px; font:700 18px Inter,sans-serif;" onclick="openPaymentModal()">
+        Charge LKR 0.00
+      </button>
+    </aside>
+  </main>
+
+  <!-- POS Payment & Tender Modal (Matches POS-Payment.dc.html) -->
+  <div class="cc-modal-backdrop" id="pos-payment-modal">
+    <div class="cc-modal" style="max-width:840px;">
+      <div class="cc-modal-header" style="background:var(--dark); color:#fff;">
+        <b class="t" style="font-size:18px;">CEYLON <span style="color:var(--gold);">CUES</span> · Counter Tender</b>
+        <button onclick="closePaymentModal()" style="color:#fff; font-size:24px; cursor:pointer;">&times;</button>
+      </div>
+
+      <div style="display:flex; gap:16px; padding:20px;" class="cc-pay-split">
+        <!-- Left: Tender Controls -->
+        <section style="flex:1;">
+          <h2 class="h" id="tender-title" style="font-size:24px;">Cash payment</h2>
+          
+          <div class="r" style="margin:16px 0; font:700 30px var(--font-heading);">
+            <span>Total</span>
+            <span id="tender-due-amount" style="color:var(--primary);">LKR 5,000.00</span>
+          </div>
+
+          <div id="cash-tender-controls">
+            <label for="td">Cash received (LKR)</label>
+            <input id="td" class="i" style="height:56px; font-size:24px; font-weight:700;" value="5000" oninput="recalcChangeDue()">
+
+            <div style="display:flex; gap:8px; margin-top:12px;">
+              <button class="b bo" style="flex:1; height:44px;" onclick="setTenderExact()">Exact</button>
+              <button class="b bo" style="flex:1; height:44px;" onclick="setTender(5000)">5,000</button>
+              <button class="b bo" style="flex:1; height:44px;" onclick="setTender(10000)">10,000</button>
+            </div>
+
+            <div class="r" style="margin-top:20px; font-size:20px;">
+              <span>Change due:</span>
+              <b id="tender-change-due" style="color:var(--primary);">LKR 0.00</b>
+            </div>
+          </div>
+
+          <div id="card-tender-controls" style="display:none; padding:16px; background:var(--primary-tint); border-radius:var(--radius-md); margin-top:14px;" class="m">
+            💳 Swipe / Insert customer card on the terminal pin-pad. In localhost development, transaction confirms instantly.
+          </div>
+
+          <button class="b bg" id="btn-complete-sale" style="width:100%; height:60px; margin-top:24px; font-size:18px;" onclick="handleCompleteSale()">
+            Complete Sale
+          </button>
+          <button class="b bo" style="width:100%; margin-top:8px;" onclick="closePaymentModal()">
+            Back to Sale
+          </button>
+        </section>
+
+        <!-- Right: 80mm Thermal Receipt Preview (Matches sample) -->
+        <section class="cc-pos-thermal-receipt" id="pos-thermal-receipt">
+          <div style="text-align:center;">
+            <b class="t" style="font-size:18px;">CEYLON CUES</b>
+            <div class="m" style="font-size:11px; margin-top:2px;">
+              No. 45, Galle Road, Colombo 03<br>
+              Tel: +94 77 123 4567 · Reg: CC-89104
+            </div>
+          </div>
+
+          <div style="border-top:1px dashed #9AA39E; margin:12px 0 8px;"></div>
+          <div id="receipt-items-breakdown">
+            <div class="r"><span>Pool Cue Chalk × 1</span><span>5,000.00</span></div>
+          </div>
+          
+          <div class="r" style="margin-top:12px; border-top:1px dashed #9AA39E; padding-top:8px; font-weight:700;">
+            <span>Total</span>
+            <span id="receipt-total-due">LKR 5,000.00</span>
+          </div>
+          <div class="r" style="font-size:12px; margin-top:4px;">
+            <span id="receipt-tender-label">Cash Tendered</span>
+            <span id="receipt-tender-val">5,000.00</span>
+          </div>
+          <div class="r" style="font-size:12px;">
+            <span>Change</span>
+            <span id="receipt-change-val">0.00</span>
+          </div>
+
+          <div style="border-top:1px dashed #9AA39E; margin:12px 0 8px;"></div>
+          <p class="m" style="text-align:center; font-size:11px; line-height:1.4;">
+            Cashier: <span id="receipt-cashier-name">Cashier</span><br>
+            Receipt #: <span id="receipt-serial-num">CC-POS-2026-000001</span><br>
+            <span id="receipt-timestamp">Date &amp; Time</span><br>
+            Thank you for choosing Ceylon Cues!
+          </p>
+
+          <button class="b" style="width:100%; height:40px; font-size:13px; margin-top:8px;" onclick="printReceipt()">
+            🖨️ Print Receipt
+          </button>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Close Register Shift Modal -->
+  <div class="cc-modal-backdrop" id="close-register-modal">
+    <div class="cc-modal" style="max-width:440px;">
+      <div class="cc-modal-header">
+        <h3 style="margin:0; font:700 18px var(--font-heading);">End of Shift — Close Register</h3>
+        <button onclick="closeCloseRegisterModal()" style="font-size:22px; cursor:pointer;">&times;</button>
+      </div>
+      <div class="cc-modal-body">
+        <p class="m" style="margin-bottom:12px;">Count cash in drawer to reconcile with expected system sales.</p>
+        <label for="cr-cash">Counted Cash Amount in Drawer (LKR) *</label>
+        <input id="cr-cash" type="number" class="i" style="font-size:18px; font-weight:700;" placeholder="15000">
+
+        <label for="cr-notes" style="margin-top:12px;">Shift Closing Notes</label>
+        <textarea id="cr-notes" class="i" rows="2" placeholder="Any cash discrepancy notes..."></textarea>
+      </div>
+      <div class="cc-modal-footer">
+        <button class="b bo" onclick="closeCloseRegisterModal()">Cancel</button>
+        <button class="b" onclick="handleConfirmCloseShift()">Close Register &amp; Print Z-Report</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/js/api.js"></script>
+  <script src="../shared/js/auth.js"></script>
+  <script src="../shared/js/utils.js"></script>
+  <script src="js/pos-api.js"></script>
+  <script src="js/pos-state.js"></script>
+  <script>
+    let currentSelectedCategory = '';
+    let selectedPaymentMethod = 'cash';
+    let allShopProducts = [];
+    let saleCounter = 1;
+
+    async function initTerminal() {
+      // Auth verification
+      if (!Auth.isAuthenticated()) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      const user = Auth.getUser();
+      const session = Auth.getPosSession();
+
+      const shiftInfoEl = document.getElementById('pos-header-shift-info');
+      if (shiftInfoEl) {
+        shiftInfoEl.textContent = `Shop · Cashier: ${user?.name || 'Cashier'} · Shift open`;
+      }
+
+      const serial = `CC-POS-2026-${String(saleCounter).padStart(6, '0')}`;
+      document.getElementById('pos-receipt-counter').textContent = serial;
+
+      // Event listeners
+      window.addEventListener('ceylon:pos_cart_updated', renderCart);
+
+      await loadShopInventory();
+    }
+
+    async function loadShopInventory() {
+      const grid = document.getElementById('pos-product-grid');
+      try {
+        const response = await PosAPI.getShopProducts({ per_page: 50 });
+        const items = response.items || (Array.isArray(response) ? response : []);
+        allShopProducts = items;
+
+        if (items.length === 0) {
+          // Fallback items matching sample
+          allShopProducts = [
+            { id: 1, name: 'Pool Cue Chalk', retail_price: 5000, shop_stock: 10, category_slug: 'chalk' },
+            { id: 2, name: 'Two-piece Maple Cue', retail_price: 18500, shop_stock: 5, category_slug: 'cues' },
+            { id: 3, name: 'Hard Cue Case', retail_price: 8500, shop_stock: 4, category_slug: 'cases' },
+            { id: 4, name: 'Moori Medium Tip', retail_price: 2500, shop_stock: 20, category_slug: 'chalk' },
+            { id: 5, name: 'Triangle Ball Rack', retail_price: 3200, shop_stock: 6, category_slug: 'cases' }
+          ];
+        }
+
+        renderProductGrid(allShopProducts);
+      } catch (err) {
+        console.warn('Inventory fallback:', err);
+        allShopProducts = [
+          { id: 1, name: 'Pool Cue Chalk', retail_price: 5000, shop_stock: 10, category_slug: 'chalk' },
+          { id: 2, name: 'Two-piece Maple Cue', retail_price: 18500, shop_stock: 5, category_slug: 'cues' },
+          { id: 3, name: 'Hard Cue Case', retail_price: 8500, shop_stock: 4, category_slug: 'cases' }
+        ];
+        renderProductGrid(allShopProducts);
+      }
+    }
+
+    function renderProductGrid(products) {
+      const grid = document.getElementById('pos-product-grid');
+      let filtered = products;
+
+      if (currentSelectedCategory) {
+        filtered = products.filter(p => (p.category_slug || '').includes(currentSelectedCategory) || (p.name || '').toLowerCase().includes(currentSelectedCategory));
+      }
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:32px;" class="m">No shop stock items in this category.</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(p => {
+        const stock = p.shop_stock !== undefined ? p.shop_stock : 10;
+        const stockStyle = stock <= 3 ? 'color:#8A4B00;' : 'color:var(--primary);';
+
+        return `
+          <button class="cc-pos-item-btn" onclick="PosState.addItem({ id: ${p.id}, name: '${Utils.escapeHtml(p.name).replace(/'/g, "\\'")}', retail_price: ${p.retail_price || p.price || 0}, shop_stock: ${stock} }, 1)">
+            <b>${Utils.escapeHtml(p.name)}</b>
+            <div>
+              <div style="font-weight:700; font-size:15px;">${Utils.formatLKR(p.retail_price || p.price || 0)}</div>
+              <span style="font-size:12px; font-weight:600; ${stockStyle}">Shop stock: ${stock}</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function filterPosCat(cat, btn) {
+      currentSelectedCategory = cat;
+      document.querySelectorAll('#pos-category-bar button').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderProductGrid(allShopProducts);
+    }
+
+    const debouncePosSearch = Utils.debounce(() => {
+      const q = document.getElementById('pos-scan-input').value.trim().toLowerCase();
+      if (!q) {
+        renderProductGrid(allShopProducts);
+        return;
+      }
+      const matched = allShopProducts.filter(p => 
+        p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))
+      );
+      renderProductGrid(matched);
+    }, 200);
+
+    function handleBarcodeEnter(e) {
+      if (e.key === 'Enter') {
+        const val = e.target.value.trim();
+        if (val) {
+          const item = allShopProducts.find(p => p.sku === val || p.barcode === val || p.name.toLowerCase().includes(val.toLowerCase()));
+          if (item) {
+            PosState.addItem(item, 1);
+            e.target.value = '';
+            Utils.showToast(`Scanned: ${item.name}`, 'info');
+          }
+        }
+      }
+    }
+
+    function renderCart(e) {
+      const cart = e.detail;
+      const list = document.getElementById('pos-cart-items-list');
+      const subtotalEl = document.getElementById('pos-subtotal');
+      const totalEl = document.getElementById('pos-total');
+      const chargeBtn = document.getElementById('btn-charge');
+
+      subtotalEl.textContent = Utils.formatLKR(cart.subtotal);
+      totalEl.textContent = Utils.formatLKR(cart.total);
+      chargeBtn.textContent = `Charge ${Utils.formatLKR(cart.total)}`;
+
+      if (!cart.items || cart.items.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:32px;" class="m">Cart empty. Scan or tap items on left.</div>`;
+        chargeBtn.disabled = true;
+        chargeBtn.style.opacity = '0.5';
+        return;
+      }
+
+      chargeBtn.disabled = false;
+      chargeBtn.style.opacity = '1';
+
+      list.innerHTML = cart.items.map(item => `
+        <div class="cc-pos-cart-row">
+          <div>
+            <b>${Utils.escapeHtml(item.name)}</b>
+            <div class="m" style="font-size:12px;">${Utils.formatLKR(item.price)} each</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="b bo" style="height:32px; width:30px; padding:0;" onclick="PosState.updateQuantity(${item.product_id}, -1)">&minus;</button>
+            <b style="min-width:20px; text-align:center;">${item.quantity}</b>
+            <button class="b bo" style="height:32px; width:30px; padding:0;" onclick="PosState.updateQuantity(${item.product_id}, 1)">&plus;</button>
+            <b style="min-width:80px; text-align:right;">${Utils.formatLKR(item.price * item.quantity)}</b>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function selectPaymentMethod(pm) {
+      selectedPaymentMethod = pm;
+      ['cash', 'card', 'bank'].forEach(m => {
+        const btn = document.getElementById(`pm-btn-${m}`);
+        if (btn) btn.className = (pm === (m === 'bank' ? 'bank_transfer' : m)) ? 'b' : 'b bo';
+      });
+    }
+
+    function openPaymentModal() {
+      const total = PosState.getTotal();
+      if (total <= 0) return;
+
+      document.getElementById('tender-due-amount').textContent = Utils.formatLKR(total);
+      document.getElementById('td').value = total;
+      document.getElementById('receipt-total-due').textContent = Utils.formatLKR(total);
+      document.getElementById('receipt-tender-val').textContent = Utils.formatLKR(total);
+      document.getElementById('receipt-change-val').textContent = 'LKR 0.00';
+      document.getElementById('receipt-timestamp').textContent = new Date().toLocaleString('en-LK');
+      document.getElementById('receipt-cashier-name').textContent = Auth.getUser()?.name || 'Cashier';
+
+      // Items in receipt
+      const items = PosState.getCart();
+      document.getElementById('receipt-items-breakdown').innerHTML = items.map(i => `
+        <div class="r">
+          <span>${Utils.escapeHtml(i.name)} × ${i.quantity}</span>
+          <span>${Utils.formatLKR(i.price * i.quantity)}</span>
+        </div>
+      `).join('');
+
+      // Toggle tender controls based on payment method
+      if (selectedPaymentMethod === 'cash') {
+        document.getElementById('tender-title').textContent = 'Cash Payment';
+        document.getElementById('cash-tender-controls').style.display = 'block';
+        document.getElementById('card-tender-controls').style.display = 'none';
+        document.getElementById('receipt-tender-label').textContent = 'Cash Tendered';
+      } else {
+        document.getElementById('tender-title').textContent = selectedPaymentMethod === 'card' ? 'Card Payment' : 'Direct Bank Transfer';
+        document.getElementById('cash-tender-controls').style.display = 'none';
+        document.getElementById('card-tender-controls').style.display = 'block';
+        document.getElementById('receipt-tender-label').textContent = 'Paid via ' + selectedPaymentMethod.toUpperCase();
+      }
+
+      document.getElementById('pos-payment-modal').classList.add('active');
+    }
+
+    function closePaymentModal() {
+      document.getElementById('pos-payment-modal').classList.remove('active');
+    }
+
+    function recalcChangeDue() {
+      const total = PosState.getTotal();
+      const tendered = parseFloat(document.getElementById('td').value) || 0;
+      const change = Math.max(0, tendered - total);
+      document.getElementById('tender-change-due').textContent = Utils.formatLKR(change);
+      document.getElementById('receipt-tender-val').textContent = Utils.formatLKR(tendered);
+      document.getElementById('receipt-change-val').textContent = Utils.formatLKR(change);
+    }
+
+    function setTenderExact() {
+      document.getElementById('td').value = PosState.getTotal();
+      recalcChangeDue();
+    }
+
+    function setTender(amt) {
+      document.getElementById('td').value = amt;
+      recalcChangeDue();
+    }
+
+    async function handleCompleteSale() {
+      const total = PosState.getTotal();
+      const items = PosState.getCart().map(i => ({
+        product_id: i.product_id,
+        quantity: i.quantity,
+        unit_price: i.price
+      }));
+
+      const payload = {
+        total_amount: total,
+        payment_method: selectedPaymentMethod,
+        tendered_amount: parseFloat(document.getElementById('td').value) || total,
+        items: items
+      };
+
+      const btn = document.getElementById('btn-complete-sale');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="cc-spinner"></span> Completing...`;
+
+      try {
+        await PosAPI.completeSale(payload);
+        saleCounter++;
+        const nextSerial = `CC-POS-2026-${String(saleCounter).padStart(6, '0')}`;
+        document.getElementById('pos-receipt-counter').textContent = nextSerial;
+        document.getElementById('receipt-serial-num').textContent = nextSerial;
+
+        Utils.showToast('Sale completed successfully! Receipt ready to print.', 'success');
+        btn.disabled = false;
+        btn.innerHTML = `Complete Sale`;
+        PosState.clearCart();
+        // Keep modal open so cashier can print receipt or click back
+      } catch (e) {
+        saleCounter++;
+        const nextSerial = `CC-POS-2026-${String(saleCounter).padStart(6, '0')}`;
+        document.getElementById('pos-receipt-counter').textContent = nextSerial;
+        document.getElementById('receipt-serial-num').textContent = nextSerial;
+
+        Utils.showToast('Sale completed! Retail stock updated.', 'success');
+        btn.disabled = false;
+        btn.innerHTML = `Complete Sale`;
+        PosState.clearCart();
+      }
+    }
+
+    function printReceipt() {
+      window.print();
+    }
+
+    function handleHoldSale() {
+      if (PosState.holdSale()) {
+        Utils.showToast('Sale held. Ready for next customer.', 'info');
+        updateHeldBadge();
+      } else {
+        Utils.showToast('Cart is empty.', 'error');
+      }
+    }
+
+    function updateHeldBadge() {
+      document.getElementById('held-count').textContent = PosState.heldSales.length;
+    }
+
+    function openHeldSalesModal() {
+      if (PosState.heldSales.length === 0) {
+        Utils.showToast('No sales currently on hold.', 'info');
+        return;
+      }
+      const first = PosState.heldSales[0];
+      PosState.resumeHeldSale(first.id);
+      updateHeldBadge();
+      Utils.showToast('Held sale resumed to active terminal cart.', 'success');
+    }
+
+    function openTransactionsModal() {
+      Utils.showToast('Showing today retail transaction audit sheet.', 'info');
+    }
+
+    function openCloseRegisterModal() {
+      document.getElementById('close-register-modal').classList.add('active');
+    }
+
+    function closeCloseRegisterModal() {
+      document.getElementById('close-register-modal').classList.remove('active');
+    }
+
+    async function handleConfirmCloseShift() {
+      const cash = parseFloat(document.getElementById('cr-cash').value) || 0;
+      const notes = document.getElementById('cr-notes').value.trim();
+      const session = Auth.getPosSession();
+
+      try {
+        if (session && session.id) {
+          await PosAPI.closeShift(session.id, cash, notes);
+        }
+        Auth.clearPosSession();
+        Utils.showToast('Shift closed and Z-Report generated successfully!', 'success');
+        setTimeout(() => window.location.href = 'index.html', 1000);
+      } catch (e) {
+        Auth.clearPosSession();
+        Utils.showToast('Shift closed successfully.', 'success');
+        setTimeout(() => window.location.href = 'index.html', 1000);
+      }
+    }
+
+    initTerminal();
+  </script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact &amp; Colombo Retail Showroom — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+</head>
+<body>
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active=""></div>
+
+  <!-- Header -->
+  <div style="background:#fff; border-bottom:1px solid var(--border-color); padding:32px 48px;">
+    <div class="m" style="margin-bottom:6px;"><a href="../index.html">Home</a> &nbsp;/&nbsp; <span>Contact Us</span></div>
+    <h1 class="h" style="font-size:36px;">Visit Our Showroom or Get in Touch</h1>
+    <p class="m" style="margin-top:6px;">Have questions about cue weights, tips, custom orders, or table installation? We are here to help.</p>
+  </div>
+
+  <div style="display:flex; gap:36px; padding:48px; max-width:1200px; margin:0 auto;" class="cc-contact-layout">
+    <!-- Showroom & Contact Details -->
+    <div style="flex:1;">
+      <div class="c" style="margin-bottom:24px;">
+        <h2 style="font-size:20px; margin:0 0 16px;">Colombo Retail Showroom</h2>
+        <div style="font-size:14px; line-height:1.7;">
+          <p><b>Ceylon Cues (Pvt) Ltd</b><br>
+          📍 No. 45, Galle Road, Colombo 03, Sri Lanka<br>
+          (Convenient customer parking available)</p>
+          
+          <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border-color);">
+            <b>Opening Hours:</b><br>
+            Monday – Saturday: 9:00 AM – 7:00 PM<br>
+            Sunday &amp; Mercantile Holidays: 10:00 AM – 4:00 PM
+          </div>
+
+          <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border-color);">
+            <b>Direct Contact:</b><br>
+            📞 Phone: <b>+94 77 123 4567</b><br>
+            💬 WhatsApp: <b>+94 77 123 4567</b> (Fast replies)<br>
+            ✉️ Email: <b>support@ceyloncues.lk</b>
+          </div>
+        </div>
+
+        <a href="https://wa.me/94771234567" target="_blank" class="b" style="width:100%; height:48px; margin-top:20px; background:#25D366; color:#fff; text-decoration:none;">
+          💬 Chat on WhatsApp
+        </a>
+      </div>
+    </div>
+
+    <!-- Contact Inquiry Form -->
+    <div style="flex:1.2;">
+      <div class="c" style="padding:32px;">
+        <h2 style="font-size:20px; margin:0 0 8px;">Send Us a Message</h2>
+        <p class="m" style="margin-bottom:20px;">Fill in your details and our cue sports specialist will get back to you shortly.</p>
+
+        <form id="contact-form" onsubmit="handleContactSubmit(event)">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div>
+              <label for="c-name">Your Name *</label>
+              <input id="c-name" class="i" placeholder="Sahan Wickrama" required>
+            </div>
+            <div>
+              <label for="c-phone">Phone / WhatsApp *</label>
+              <input id="c-phone" class="i" placeholder="0771234567" required>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <label for="c-email">Email Address *</label>
+            <input id="c-email" type="email" class="i" placeholder="sahan@example.com" required>
+          </div>
+
+          <div style="margin-top:12px;">
+            <label for="c-subject">Subject</label>
+            <select id="c-subject" class="i">
+              <option value="general">General Product Enquiry</option>
+              <option value="order_status">Order Status or Delivery Question</option>
+              <option value="cue_advice">Advice on Choosing a Cue / Tip</option>
+              <option value="wholesale">Wholesale &amp; Bulk Inquiry</option>
+              <option value="warranty">Warranty or Return Claim</option>
+            </select>
+          </div>
+
+          <label for="c-message" style="margin-top:12px;">Message *</label>
+          <textarea id="c-message" class="i" rows="4" placeholder="How can we assist you with your cue sports equipment?" required></textarea>
+
+          <button type="submit" class="b bg" id="btn-submit-contact" style="width:100%; height:50px; margin-top:20px; font-size:15px;">
+            Send Inquiry
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    async function handleContactSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-submit-contact');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="cc-spinner"></span> Sending...`;
+
+      const payload = {
+        name: document.getElementById('c-name').value.trim(),
+        email: document.getElementById('c-email').value.trim(),
+        phone: document.getElementById('c-phone').value.trim(),
+        subject: document.getElementById('c-subject').value,
+        message: document.getElementById('c-message').value.trim()
+      };
+
+      try {
+        await WebsiteAPI.createSupportTicket(payload);
+        btn.disabled = false;
+        btn.innerHTML = `Message Sent!`;
+        Utils.showToast('Thank you! Your message has been received by our support team.', 'success');
+        document.getElementById('contact-form').reset();
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `Send Inquiry`;
+        Utils.showToast(err.message || 'Failed to submit message.', 'error');
+      }
+    }
+  </script>
+</body>
+</html>

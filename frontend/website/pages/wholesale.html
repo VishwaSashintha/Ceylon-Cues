@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wholesale Equipment &amp; Club Supply — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+</head>
+<body>
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active="wholesale"></div>
+
+  <!-- Wholesale Hero -->
+  <section style="background:var(--dark); color:#fff; padding:64px 48px; border-bottom:2px solid var(--gold-dark);">
+    <div style="max-width:800px;">
+      <span class="p" style="background:rgba(232, 201, 122, 0.15); color:var(--gold); margin-bottom:12px;">B2B &amp; CLUB SUPPLY</span>
+      <h1 class="h" style="font-size:42px; color:#fff; margin:12px 0;">Wholesale Cue Sports Distribution</h1>
+      <p style="color:var(--text-on-dark); font-size:16px; line-height:1.6;">
+        Ceylon Cues is Sri Lanka's direct distributor for commercial pool parlors, billiard clubs, luxury resorts, sports academies, and retail resellers. Enjoy tiered commercial pricing, guaranteed spare parts supply, and bulk maintenance support.
+      </p>
+    </div>
+  </section>
+
+  <!-- Benefits & Enquiry Form -->
+  <div style="display:flex; gap:36px; padding:48px; max-width:1200px; margin:0 auto;" class="cc-wholesale-layout">
+    <!-- Left: Tiers & Perks -->
+    <div style="flex:1;">
+      <h2 style="font-size:22px; margin:0 0 16px;">Wholesale Partner Tiers</h2>
+      
+      <div class="c" style="margin-bottom:16px;">
+        <div class="r">
+          <b>Tier 1 · Commercial Clubs &amp; Parlors</b>
+          <span class="p" style="background:var(--gold-light); color:var(--gold-deep);">15% - 25% OFF</span>
+        </div>
+        <p class="m" style="margin-top:8px;">High-traffic commercial centers needing regular bulk shipments of chalk, multi-layer tips, table cloths, and club house cues.</p>
+      </div>
+
+      <div class="c" style="margin-bottom:16px;">
+        <div class="r">
+          <b>Tier 2 · Retailers &amp; Sports Shops</b>
+          <span class="p" style="background:var(--primary-tint); color:var(--primary);">Wholesale Catalog</span>
+        </div>
+        <p class="m" style="margin-top:8px;">Authorised retail partners stocking Ceylon Cues branded equipment and accessories across Sri Lankan districts.</p>
+      </div>
+
+      <div class="c">
+        <div class="r">
+          <b>Tier 3 · Luxury Hotels &amp; Resorts</b>
+          <span class="p">Turnkey Solutions</span>
+        </div>
+        <p class="m" style="margin-top:8px;">Complete games room setups including tournament tables, rest heads, premium cue sets, wall racks, and professional maintenance.</p>
+      </div>
+
+      <div style="margin-top:24px; padding:20px; background:var(--primary-tint); border-radius:var(--radius-lg);" class="m">
+        <b style="color:var(--primary); font-size:15px; display:block; margin-bottom:4px;">Wholesale Manager Helpline</b>
+        Need immediate bulk pricing quotation or custom branded cue specifications? Call our wholesale team directly on <b>+94 77 123 4567</b> or email <b>wholesale@ceyloncues.lk</b>.
+      </div>
+    </div>
+
+    <!-- Right: Enquiry Form -->
+    <div style="flex:1.2;">
+      <div class="c" style="padding:32px;">
+        <h2 style="font-size:22px; margin:0 0 8px;">Submit Wholesale Enquiry</h2>
+        <p class="m" style="margin-bottom:20px;">Our commercial account manager will verify your business and email your wholesale price catalogue within 24 hours.</p>
+
+        <form id="wholesale-form" onsubmit="handleWholesaleSubmit(event)">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div>
+              <label for="ws-name">Contact Person *</label>
+              <input id="ws-name" class="i" placeholder="e.g. Priyantha Fernando" required>
+            </div>
+            <div>
+              <label for="ws-company">Business / Club Name *</label>
+              <input id="ws-company" class="i" placeholder="e.g. Colombo Snooker Club" required>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">
+            <div>
+              <label for="ws-email">Business Email *</label>
+              <input id="ws-email" type="email" class="i" placeholder="manager@club.lk" required>
+            </div>
+            <div>
+              <label for="ws-phone">WhatsApp / Phone *</label>
+              <input id="ws-phone" class="i" placeholder="0771234567" required>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">
+            <div>
+              <label for="ws-type">Business Type</label>
+              <select id="ws-type" class="i">
+                <option value="pool_parlor">Commercial Pool / Snooker Parlor</option>
+                <option value="hotel_resort">Hotel, Villa or Resort</option>
+                <option value="sports_retailer">Sports Goods Retailer</option>
+                <option value="school_club">School / University Sports Club</option>
+                <option value="other">Other Commercial Facility</option>
+              </select>
+            </div>
+            <div>
+              <label for="ws-district">District / Location</label>
+              <select id="ws-district" class="i">
+                <option value="Colombo">Colombo</option>
+                <option value="Gampaha">Gampaha</option>
+                <option value="Kandy">Kandy</option>
+                <option value="Galle">Galle</option>
+                <option value="Other">Other Island-wide</option>
+              </select>
+            </div>
+          </div>
+
+          <label for="ws-message" style="margin-top:12px;">Equipment Requirements &amp; Estimated Volume</label>
+          <textarea id="ws-message" class="i" rows="4" placeholder="Mention products needed (e.g. 50 boxes Master chalk, 10 two-piece cues, 5 rolls table cloth)..."></textarea>
+
+          <button type="submit" class="b bg" id="btn-submit-ws" style="width:100%; height:52px; margin-top:24px; font-size:16px;">
+            Submit Wholesale Application
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    async function handleWholesaleSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-submit-ws');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="cc-spinner"></span> Submitting...`;
+
+      const payload = {
+        contact_name: document.getElementById('ws-name').value.trim(),
+        business_name: document.getElementById('ws-company').value.trim(),
+        email: document.getElementById('ws-email').value.trim(),
+        phone: document.getElementById('ws-phone').value.trim(),
+        business_type: document.getElementById('ws-type').value,
+        district: document.getElementById('ws-district').value,
+        message: document.getElementById('ws-message').value.trim()
+      };
+
+      try {
+        await WebsiteAPI.submitWholesaleEnquiry(payload);
+        btn.disabled = false;
+        btn.innerHTML = `Application Received!`;
+        btn.className = 'b';
+        Utils.showToast('Thank you! Your wholesale application was submitted successfully.', 'success');
+        document.getElementById('wholesale-form').reset();
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `Submit Wholesale Application`;
+        Utils.showToast(err.message || 'Submission failed. Please check your fields.', 'error');
+      }
+    }
+  </script>
+</body>
+</html>

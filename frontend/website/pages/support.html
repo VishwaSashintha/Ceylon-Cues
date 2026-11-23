@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Help &amp; Customer Support — Ceylon Cues</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/css/variables.css">
+  <link rel="stylesheet" href="../../shared/css/base.css">
+  <link rel="stylesheet" href="../../shared/css/components.css">
+  <link rel="stylesheet" href="../css/website.css">
+</head>
+<body>
+  <div id="cc-topbar-mount"></div>
+  <div id="cc-header-mount" data-active=""></div>
+
+  <div style="background:#fff; border-bottom:1px solid var(--border-color); padding:32px 48px;">
+    <div class="m" style="margin-bottom:6px;"><a href="../index.html">Home</a> &nbsp;/&nbsp; <span>Support</span></div>
+    <h1 class="h" style="font-size:36px;">Customer Support &amp; Help Desk</h1>
+    <p class="m" style="margin-top:6px;">Submit an inquiry ticket, track support requests, or browse frequently asked questions.</p>
+  </div>
+
+  <div style="max-width:960px; margin:48px auto; padding:0 24px;">
+    <!-- FAQ Section -->
+    <div class="c" style="margin-bottom:32px; padding:32px;">
+      <h2 style="font-size:22px; margin:0 0 20px;">Frequently Asked Questions</h2>
+      
+      <div style="margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--border-color);">
+        <b style="font-size:16px;">How long does delivery take across Sri Lanka?</b>
+        <p class="m" style="margin-top:6px; line-height:1.6;">
+          Deliveries within the Western Province (Colombo, Gampaha, Kalutara) take 24 to 48 hours. Island-wide courier deliveries to all other districts typically take 2 to 4 business days with end-to-end waybill tracking.
+        </p>
+      </div>
+
+      <div style="margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--border-color);">
+        <b style="font-size:16px;">What payment methods are supported?</b>
+        <p class="m" style="margin-top:6px; line-height:1.6;">
+          We accept Direct Bank Transfer (Commercial Bank of Ceylon), Visa / Mastercard, KOKO (3 installments), Mintpay, and Cash on Delivery (COD) for eligible standard orders.
+        </p>
+      </div>
+
+      <div>
+        <b style="font-size:16px;">Can I test cues in person before buying?</b>
+        <p class="m" style="margin-top:6px; line-height:1.6;">
+          Yes! You are welcome to visit our retail showroom at No. 45 Galle Road, Colombo 03, where our staff will allow you to test cue weight and balance on our demonstration table.
+        </p>
+      </div>
+    </div>
+
+    <!-- Ticket Form -->
+    <div class="c" style="padding:32px;">
+      <h2 style="font-size:22px; margin:0 0 8px;">Create a Support Ticket</h2>
+      <p class="m" style="margin-bottom:20px;">Need help with an existing order, product defect, or bank transfer verification? Open a ticket below.</p>
+
+      <form id="support-form" onsubmit="handleSupportSubmit(event)">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div>
+            <label for="tk-name">Your Name *</label>
+            <input id="tk-name" class="i" placeholder="Sahan Wickrama" required>
+          </div>
+          <div>
+            <label for="tk-email">Email Address *</label>
+            <input id="tk-email" type="email" class="i" placeholder="sahan@example.com" required>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">
+          <div>
+            <label for="tk-order">Related Order Number (Optional)</label>
+            <input id="tk-order" class="i" placeholder="e.g. CC-ORD-2026-000001">
+          </div>
+          <div>
+            <label for="tk-priority">Priority</label>
+            <select id="tk-priority" class="i">
+              <option value="normal">Normal (24-hour response)</option>
+              <option value="high">High (Urgent delivery or payment query)</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="tk-subject" style="margin-top:12px;">Subject *</label>
+        <input id="tk-subject" class="i" placeholder="Brief summary of your inquiry" required>
+
+        <label for="tk-message" style="margin-top:12px;">Detailed Description *</label>
+        <textarea id="tk-message" class="i" rows="4" placeholder="Please provide details regarding your inquiry..." required></textarea>
+
+        <button type="submit" class="b bg" id="btn-submit-ticket" style="width:100%; height:50px; margin-top:24px; font-size:15px;">
+          Submit Ticket
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="cc-footer-mount"></div>
+
+  <script src="../../shared/js/api.js"></script>
+  <script src="../../shared/js/auth.js"></script>
+  <script src="../../shared/js/utils.js"></script>
+  <script src="../js/website-api.js"></script>
+  <script src="../js/cart-state.js"></script>
+  <script src="../js/site-shell.js"></script>
+  <script>
+    if (Auth.isAuthenticated()) {
+      const u = Auth.getUser();
+      if (u) {
+        if (u.name) document.getElementById('tk-name').value = u.name;
+        if (u.email) document.getElementById('tk-email').value = u.email;
+      }
+    }
+
+    async function handleSupportSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-submit-ticket');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="cc-spinner"></span> Submitting...`;
+
+      const payload = {
+        name: document.getElementById('tk-name').value.trim(),
+        email: document.getElementById('tk-email').value.trim(),
+        order_number: document.getElementById('tk-order').value.trim(),
+        priority: document.getElementById('tk-priority').value,
+        subject: document.getElementById('tk-subject').value.trim(),
+        message: document.getElementById('tk-message').value.trim()
+      };
+
+      try {
+        await WebsiteAPI.createSupportTicket(payload);
+        btn.disabled = false;
+        btn.innerHTML = `Ticket Submitted`;
+        Utils.showToast('Your support ticket was submitted successfully! A support agent will reply to your email.', 'success');
+        document.getElementById('support-form').reset();
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `Submit Ticket`;
+        Utils.showToast(err.message || 'Failed to submit support ticket.', 'error');
+      }
+    }
+  </script>
+</body>
+</html>
