@@ -52,6 +52,19 @@ final class InventoryController
     }
 
     /**
+     * GET /api/v1/inventory/adjustments
+     */
+    public function listAdjustments(Request $request): void
+    {
+        $filters = [
+            'product_id'  => $request->getParam('product_id'),
+            'location_id' => $request->getParam('location_id'),
+        ];
+        $adjustments = $this->inventory->listAdjustments($filters);
+        Response::json($adjustments, 'Stock adjustments retrieved');
+    }
+
+    /**
      * POST /api/v1/inventory/adjustments
      */
     public function adjust(Request $request): void

@@ -5,13 +5,17 @@
 (function(window) {
   'use strict';
 
-  // Configurable API Base URL
-  const DEFAULT_API_BASE = window.location.origin.includes('localhost') 
-    ? 'http://localhost/ceylon-cues/api/v1' 
-    : '/ceylon-cues/api/v1';
+  function getAutoApiBase() {
+    if (window.CEYLON_API_BASE) return window.CEYLON_API_BASE.replace(/\/+$/, '');
+    const path = window.location.pathname;
+    if (path.includes('/ceylon-cues/')) {
+      return `${window.location.origin}/ceylon-cues/api/v1`;
+    }
+    return `${window.location.origin}/api/v1`;
+  }
 
   const ApiClient = {
-    baseUrl: window.CEYLON_API_BASE || DEFAULT_API_BASE,
+    baseUrl: getAutoApiBase(),
 
     setBaseUrl(url) {
       this.baseUrl = url.replace(/\/+$/, '');
@@ -22,12 +26,15 @@
     },
 
     /**
-     * Resolves full asset/image URL from backend path
+     * Resolves complete asset/image URL from backend path
      */
     getImageUrl(path) {
       if (!path) return '';
       if (path.startsWith('http://') || path.startsWith('https://')) return path;
-      const clean = path.replace(/^\/+/, '');
+      let clean = path.replace(/^\/+/, '');
+      if (clean.startsWith('public/')) {
+        clean = clean.substring(7);
+      }
       const host = this.baseUrl.replace(/\/api\/v1\/?$/, '');
       return `${host}/${clean}`;
     },
@@ -37,7 +44,7 @@
         endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/${endpoint.replace(/^\/+/, '')}`
       );
 
-      // Append query params if GET or specified
+      // Append query params if specified
       if (options.params) {
         Object.keys(options.params).forEach(key => {
           if (options.params[key] !== undefined && options.params[key] !== null && options.params[key] !== '') {

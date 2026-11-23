@@ -252,4 +252,26 @@ final class EmployeeController
 
         Response::json(null, 'Permissions updated successfully');
     }
+
+    /**
+     * GET /api/v1/audit-logs
+     */
+    public function auditLogs(Request $request): void
+    {
+        $page = $request->page(1);
+        $perPage = $request->perPage(25);
+        $filters = [];
+        if ($action = $request->getParam('action')) {
+            $filters['action'] = $action;
+        }
+        if ($entityType = $request->getParam('entity_type')) {
+            $filters['entity_type'] = $entityType;
+        }
+        if ($userId = $request->getParam('user_id')) {
+            $filters['user_id'] = (int)$userId;
+        }
+
+        $logs = $this->audit->getLogs($filters, $page, $perPage);
+        Response::json($logs, 'Audit logs retrieved');
+    }
 }

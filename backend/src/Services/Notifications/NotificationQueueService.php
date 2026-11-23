@@ -82,6 +82,23 @@ final class NotificationQueueService
     }
 
     /**
+     * GET /api/v1/notifications/queue — list pending items for ERP display
+     */
+    public function getPendingItems(int $limit = 50): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT id, event_type, recipient_phone, status, attempts, priority, created_at, scheduled_at
+            FROM notification_queue
+            WHERE status IN ('pending', 'failed')
+            ORDER BY priority DESC, created_at ASC
+            LIMIT :limit
+        ");
+        $stmt->bindValue(':limit', $limit, \PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Process pending messages in the queue (run by CLI worker or cron).
      */
     public function processPendingQueue(int $batchSize = 20): int

@@ -1,5 +1,38 @@
+# Ceylon Cues - Root Security & Routing Configuration
+
+# Prevent directory browsing
+Options -Indexes
+
+# Block access to hidden files (.env, .git, etc.)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Deny,Allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block configuration, lock and environment files
+<FilesMatch "(composer\.(json|lock)|\.env.*|\.git.*|phpunit\.xml)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Deny,Allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Deny direct access to internal backend source code and storage
+    RewriteRule ^backend/(src|database|storage|tests|bin|vendor|config) - [F,L]
+    RewriteRule (^|/)\.(?!well-known) - [F,L]
+
+    # Route public API and uploads to backend/public/
     RewriteRule ^api/(.*)$ backend/public/api/$1 [L,QSA]
     RewriteRule ^uploads/(.*)$ backend/public/uploads/$1 [L,QSA]
 </IfModule>

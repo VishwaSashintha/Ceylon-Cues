@@ -21,6 +21,15 @@ final class NotificationController
     }
 
     /**
+     * GET /api/v1/notifications/queue (ERP - list pending notifications)
+     */
+    public function listQueue(Request $request): void
+    {
+        $items = $this->queue->getPendingItems(50);
+        Response::json($items, 'Notification queue retrieved');
+    }
+
+    /**
      * POST /api/v1/notifications/process-queue (Trigger worker manually or via cron webhook)
      */
     public function process(Request $request): void

@@ -196,6 +196,38 @@ final class InventoryService
     }
 
     /**
+     * List stock adjustment records (ERP audit view).
+     */
+    public function listAdjustments(array $filters = [], int $limit = 100): array
+    {
+        $where = ["m.movement_type = 'adjustment'"];
+        $params = [];
+
+        if (!empty($filters['product_id'])) {
+            $where[] = 'm.product_id = :pid';
+            $params[':pid'] = $filters['product_id'];
+        }
+        if (!empty($filters['location_id'])) {
+            $where[] = 'm.location_id = :lid';
+            $params[':lid'] = $filters['location_id'];
+        }
+
+        $sql = "
+            SELECT m.id, m.product_id, m.location_id, m.quantity_change, m.reason,
+                   m.notes, m.created_at, p.name as product_name, l.name as location_name
+            FROM stock_movements m
+            LEFT JOIN products p ON m.product_id = p.id
+            LEFT JOIN inventory_locations l ON m.location_id = l.id
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY m.created_at DESC
+            LIMIT {$limit}
+        ";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Get stock movement audit ledger for a product or location.
      */
     public function getMovements(array $filters = [], int $limit = 50): array

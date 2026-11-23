@@ -168,4 +168,10 @@ final class MarketingService
         $stmt = $this->db->query("SELECT * FROM discounts ORDER BY created_at DESC");
         return $stmt->fetchAll();
     }
+
+    public function deleteDiscount(int $id): void
+    {
+        $stmt = $this->db->prepare("DELETE FROM discounts WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+    }
 }

@@ -31,6 +31,9 @@ final class Validator
     /** @var array<string, mixed> The data being validated */
     private array $data;
 
+    /** @var string[] Rules for the field currently being evaluated */
+    private array $currentFieldRules = [];
+
     /**
      * Validate data against the given rules.
      *
@@ -82,6 +85,7 @@ final class Validator
      */
     private function validateField(string $field, array $rules): void
     {
+        $this->currentFieldRules = $rules;
         $value = $this->data[$field] ?? null;
         $isNullable = in_array('nullable', $rules, true);
 
@@ -198,7 +202,13 @@ final class Validator
             return;
         }
 
-        if (is_numeric($value)) {
+        $isExplicitNumeric = in_array('numeric', $this->currentFieldRules, true)
+            || in_array('integer', $this->currentFieldRules, true)
+            || in_array('decimal', $this->currentFieldRules, true)
+            || is_int($value)
+            || is_float($value);
+
+        if ($isExplicitNumeric && is_numeric($value)) {
             if ((float) $value < $min) {
                 $this->addError($field, "The {$this->label($field)} must be at least {$min}.");
             }
@@ -225,7 +235,13 @@ final class Validator
             return;
         }
 
-        if (is_numeric($value)) {
+        $isExplicitNumeric = in_array('numeric', $this->currentFieldRules, true)
+            || in_array('integer', $this->currentFieldRules, true)
+            || in_array('decimal', $this->currentFieldRules, true)
+            || is_int($value)
+            || is_float($value);
+
+        if ($isExplicitNumeric && is_numeric($value)) {
             if ((float) $value > $max) {
                 $this->addError($field, "The {$this->label($field)} must not exceed {$max}.");
             }

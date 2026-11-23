@@ -22,6 +22,18 @@
       <!-- Checkout Form Sections -->
       <div style="flex:2; display:flex; flex-direction:column; gap:16px;">
         
+        <!-- Customer Account / Auth Status Banner -->
+        <div id="checkout-auth-banner" style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:8px; padding:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div>
+            <div style="font-weight:700; font-size:14px; color:#111;">Have an account with Ceylon Cues?</div>
+            <div style="font-size:13px; color:#6B7280; margin-top:2px;">Sign in for one-click address pre-fill and live order tracking.</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <a href="login.html?redirect=checkout.html" class="b bo" style="height:36px; line-height:34px; padding:0 14px; font-size:13px; text-decoration:none;">Log In</a>
+            <a href="register.html?redirect=checkout.html" class="b" style="height:36px; line-height:36px; padding:0 14px; font-size:13px; text-decoration:none;">Register</a>
+          </div>
+        </div>
+
         <!-- 1 · Contact -->
         <section class="c">
           <h2 style="margin:0 0 16px; font-size:18px;">1 · Contact Details</h2>
@@ -201,6 +213,30 @@
     </div>
   </div>
 
+  <!-- Order OTP Verification Modal -->
+  <div class="cc-modal-backdrop" id="otp-modal">
+    <div class="cc-modal" style="max-width:440px;">
+      <div class="cc-modal-header">
+        <h3 style="margin:0; font:700 18px var(--font-heading);">Verify Order via Email</h3>
+        <button class="cc-modal-close" onclick="closeOtpModal()" style="font-size:22px; cursor:pointer; background:none; border:none;">&times;</button>
+      </div>
+      <div class="cc-modal-body">
+        <p class="m" style="margin-bottom:12px; font-size:14px; line-height:1.5;">
+          A 6-digit verification code has been dispatched to your email address: <b id="otp-email-target"></b>.
+        </p>
+        <div id="otp-dev-hint" style="display:none; margin-bottom:14px; background:#ECFDF5; border:1px solid #A7F3D0; border-radius:6px; padding:10px 14px; font-size:13px; color:#065F46;"></div>
+        
+        <label for="otp-input" style="font-weight:700;">Enter 6-Digit Code *</label>
+        <input id="otp-input" class="i" maxlength="6" placeholder="123456" inputmode="numeric" style="font-size:22px; font-weight:700; text-align:center; letter-spacing:6px; height:52px;" required>
+        <div class="m" style="margin-top:8px; font-size:12px;">Valid for 10 minutes. Check your spam/junk folder if not received.</div>
+      </div>
+      <div class="cc-modal-footer">
+        <button class="b bo" onclick="closeOtpModal()">Cancel</button>
+        <button class="b" id="btn-submit-otp" onclick="submitOtpAndPlaceOrder()">Verify &amp; Confirm Order</button>
+      </div>
+    </div>
+  </div>
+
   <div id="cc-footer-mount"></div>
 
   <script src="../../shared/js/api.js"></script>
@@ -230,6 +266,21 @@
           if (u.name) document.getElementById('n').value = u.name;
           if (u.email) document.getElementById('em').value = u.email;
           if (u.phone) document.getElementById('ph').value = u.phone;
+        }
+        const banner = document.getElementById('checkout-auth-banner');
+        if (banner) {
+          banner.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="color:#065F46; font-size:18px;">✓</span>
+              <div>
+                <span style="font-size:14px; font-weight:700; color:#111;">Signed in as ${Utils.escapeHtml(u?.name || 'Customer')}</span>
+                <span style="font-size:13px; color:#6B7280; margin-left:6px;">(${Utils.escapeHtml(u?.email || '')})</span>
+              </div>
+            </div>
+            <span class="p success" style="font-size:12px;">VERIFIED CUSTOMER</span>
+          `;
+          banner.style.background = '#ECFDF5';
+          banner.style.borderColor = '#A7F3D0';
         }
       }
 
@@ -352,6 +403,17 @@
       }
     }
 
+    let pendingOrderPayload = null;
+
+    function closeOtpModal() {
+      document.getElementById('otp-modal').classList.remove('active');
+      const btn = document.getElementById('btn-place-order');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `Place Order`;
+      }
+    }
+
     async function handlePlaceOrder() {
       const name = document.getElementById('n').value.trim();
       const phone = document.getElementById('ph').value.trim();
@@ -376,6 +438,15 @@
         }
       }
 
+      // Enforce authenticated checkout for bank transfer orders
+      if (!Auth.isAuthenticated() && paymentMethod === 'bank_transfer') {
+        Utils.showToast('Please log in or register before placing a bank transfer order.', 'warning');
+        setTimeout(() => {
+          window.location.href = `login.html?redirect=checkout.html`;
+        }, 1200);
+        return;
+      }
+
       const btn = document.getElementById('btn-place-order');
       btn.disabled = true;
       btn.innerHTML = `<span class="cc-spinner"></span> Processing order...`;
@@ -387,7 +458,7 @@
         unit_price: i.unit_price
       }));
 
-      const payload = {
+      pendingOrderPayload = {
         customer_name: name,
         customer_email: email,
         customer_phone: phone,
@@ -402,6 +473,58 @@
         items: items
       };
 
+      // If user is authenticated, trigger email OTP verification flow
+      if (Auth.isAuthenticated()) {
+        try {
+          btn.innerHTML = `<span class="cc-spinner"></span> Requesting verification code...`;
+          const otpRes = await WebsiteAPI.requestOtp({
+            items: items,
+            delivery_method: deliveryMethod,
+            payment_method: paymentMethod
+          });
+
+          document.getElementById('otp-email-target').textContent = otpRes.email_hint || email;
+          const devHint = document.getElementById('otp-dev-hint');
+          const otpInput = document.getElementById('otp-input');
+          if (otpRes.dev_otp) {
+            devHint.style.display = 'block';
+            devHint.innerHTML = `Local Development Mode: Verification code is <b>${otpRes.dev_otp}</b> (auto-filled below).`;
+            otpInput.value = otpRes.dev_otp;
+          } else {
+            devHint.style.display = 'none';
+            otpInput.value = '';
+          }
+
+          document.getElementById('otp-modal').classList.add('active');
+          otpInput.focus();
+          return;
+        } catch (otpErr) {
+          console.warn('OTP request failed, attempting direct order placement:', otpErr);
+          // If OTP fails to send, allow placeOrder to handle server-side validation
+        }
+      }
+
+      // Guest COD order placement
+      await executeOrderPlacement(pendingOrderPayload);
+    }
+
+    async function submitOtpAndPlaceOrder() {
+      const code = document.getElementById('otp-input').value.trim();
+      if (!code || code.length < 4) {
+        Utils.showToast('Please enter the 6-digit verification code.', 'error');
+        return;
+      }
+
+      const submitBtn = document.getElementById('btn-submit-otp');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span class="cc-spinner"></span> Verifying...`;
+
+      pendingOrderPayload.otp_code = code;
+      await executeOrderPlacement(pendingOrderPayload, submitBtn);
+    }
+
+    async function executeOrderPlacement(payload, activeBtn = null) {
+      const btn = activeBtn || document.getElementById('btn-place-order');
       try {
         const orderResult = await WebsiteAPI.placeOrder(payload);
         const orderId = orderResult.order_id || orderResult.id;
@@ -422,6 +545,7 @@
         }
 
         CartState.clear();
+        closeOtpModal();
         Utils.showToast(`Order ${orderNumber} placed successfully!`, 'success');
 
         setTimeout(() => {
@@ -429,8 +553,10 @@
         }, 800);
       } catch (err) {
         console.error('Order placement failed:', err);
-        btn.disabled = false;
-        btn.innerHTML = `Place Order`;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = (activeBtn) ? 'Verify &amp; Confirm Order' : 'Place Order';
+        }
         Utils.showToast(err.message || 'Failed to place order. Please check required fields.', 'error');
       }
     }

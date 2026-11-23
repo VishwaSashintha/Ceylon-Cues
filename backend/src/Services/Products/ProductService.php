@@ -68,7 +68,7 @@ final class ProductService
         $orderBySql = ($sortByCol === 'p.is_featured DESC, p.created_at') ? "{$sortByCol} {$sortOrder}" : "{$sortByCol} {$sortOrder}";
 
         $sql = "
-            SELECT p.*, c.name as category_name, s.company_name as supplier_name,
+            SELECT p.*, p.retail_price as price, c.name as category_name, s.company_name as supplier_name,
                    COALESCE(osa.allocated_quantity, 0) as online_stock,
                    COALESCE(osa.is_visible_online, 1) as is_visible_online,
                    (SELECT SUM(quantity) FROM inventory_stock WHERE product_id = p.id) as total_physical_stock
@@ -121,7 +121,7 @@ final class ProductService
     {
         $col = is_numeric($identifier) ? 'p.id' : 'p.slug';
         $stmt = $this->db->prepare("
-            SELECT p.*, c.name as category_name, s.company_name as supplier_name,
+            SELECT p.*, p.retail_price as price, c.name as category_name, s.company_name as supplier_name,
                    COALESCE(osa.allocated_quantity, 0) as online_stock,
                    COALESCE(osa.is_visible_online, 1) as is_visible_online
             FROM products p

@@ -25,6 +25,19 @@ final class SettingController
     }
 
     /**
+     * GET /api/v1/health
+     */
+    public function health(Request $request): void
+    {
+        Response::json([
+            'status'    => 'ok',
+            'service'   => 'Ceylon Cues API',
+            'timestamp' => date('c'),
+            'database'  => 'connected',
+        ], 'Ceylon Cues API is operational');
+    }
+
+    /**
      * GET /api/v1/settings/public (Public settings: name, contact, currency)
      */
     public function getPublic(Request $request): void

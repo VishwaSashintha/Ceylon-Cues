@@ -54,6 +54,10 @@
       return window.API.post('/checkout/calculate', payload);
     },
 
+    async requestOtp(payload) {
+      return window.API.post('/checkout/request-otp', payload);
+    },
+
     async placeOrder(payload) {
       return window.API.post('/checkout/place-order', payload);
     },

@@ -2529,132 +2529,82 @@
     },
 
     // ==========================================
-    // 23. EMPLOYEES & ROLES
+    // 23. ADMINISTRATOR PROFILE & ACCESS
     // ==========================================
     async renderEmployees(container) {
-      let employees = [];
-      try {
-        const res = await ErpAPI.getEmployees();
-        employees = Array.isArray(res) ? res : (res.items || []);
-      } catch (e) {}
-
       container.innerHTML = `
         <div class="r" style="margin-bottom:20px;">
           <div>
-            <h1 class="h" style="font-size:26px;">Employees &amp; Staff Roles</h1>
-            <p class="m" style="margin-top:2px;">Staff directory and role-based permissions matrix</p>
+            <h1 class="h" style="font-size:26px;">Administrator &amp; Owner Profile</h1>
+            <p class="m" style="margin-top:2px;">Sole operator account and master administrative access control</p>
           </div>
-          <button class="b" onclick="ErpApp.openCreateEmployeeModal()">+ Add Employee</button>
         </div>
 
-        <div class="c" style="padding:0; overflow:hidden;">
-          <table class="cc-table">
+        <div class="c" style="max-width:840px;">
+          <div style="display:flex; align-items:center; gap:16px; padding-bottom:20px; border-bottom:1px solid #E5E7EB; margin-bottom:20px;">
+            <div style="width:64px; height:64px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700;">
+              CC
+            </div>
+            <div>
+              <h2 style="font-size:20px; margin:0 0 4px;">Vishwa (Business Owner)</h2>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="p success">SUPER ADMINISTRATOR</span>
+                <span class="p" style="background:#FEF3C7; color:#92400E;">SOLE OPERATOR</span>
+                <span style="font-size:13px; color:#6B7280;">owner@ceyloncues.lk</span>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="font-size:16px; margin:0 0 12px;">Administrative Authority &amp; Scope</h3>
+          <p class="m" style="line-height:1.6; margin-bottom:16px;">
+            Ceylon Cues is a sole-proprietor business operated exclusively by the business owner. All ERP modules,
+            including product catalog, website stock allocations, supplier purchase orders, bank payment verifications,
+            and business configuration, are restricted to this securely provisioned owner account.
+          </p>
+
+          <table class="cc-table" style="margin-top:12px;">
             <thead>
               <tr>
-                <th>Staff Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>POS Fast PIN</th>
-                <th>2FA Enabled</th>
-                <th>Status</th>
+                <th>Module / Function</th>
+                <th>Access Level</th>
+                <th>Security Verification</th>
               </tr>
             </thead>
             <tbody>
-              ${employees.length > 0 ? employees.map(e => `
-                <tr>
-                  <td><b>${Utils.escapeHtml(e.name)}</b></td>
-                  <td>${Utils.escapeHtml(e.email)}</td>
-                  <td><span class="p ${e.role === 'owner' ? 'success' : ''}">${(e.role || 'cashier').replace('_', ' ').toUpperCase()}</span></td>
-                  <td><code>${e.pin ? '••••' : 'Configured'}</code></td>
-                  <td>${e.two_factor_enabled ? '✓ Enabled' : 'Optional'}</td>
-                  <td><span class="p success">ACTIVE</span></td>
-                </tr>
-              `).join('') : `
-                <tr>
-                  <td><b>Vishwa (Business Owner)</b></td>
-                  <td>owner@ceyloncues.lk</td>
-                  <td><span class="p success">OWNER</span></td>
-                  <td><code>••••</code></td>
-                  <td>✓ Mandatory</td>
-                  <td><span class="p success">ACTIVE</span></td>
-                </tr>
-                <tr>
-                  <td><b>Sahan Perera (Shop Cashier)</b></td>
-                  <td>cashier@ceyloncues.lk</td>
-                  <td><span class="p">SHOP CASHIER</span></td>
-                  <td><code>1234</code></td>
-                  <td>Optional</td>
-                  <td><span class="p success">ACTIVE</span></td>
-                </tr>
-              `}
+              <tr>
+                <td><b>Products &amp; Pricing</b></td>
+                <td><span class="p success">FULL MASTER ACCESS</span></td>
+                <td>Session Token</td>
+              </tr>
+              <tr>
+                <td><b>Inventory &amp; Stock Allocations</b></td>
+                <td><span class="p success">FULL MASTER ACCESS</span></td>
+                <td>Location Authorization</td>
+              </tr>
+              <tr>
+                <td><b>Orders &amp; Courier Fulfilment</b></td>
+                <td><span class="p success">FULL MASTER ACCESS</span></td>
+                <td>Audit Logged</td>
+              </tr>
+              <tr>
+                <td><b>Bank Transfer Slip Approvals</b></td>
+                <td><span class="p success">FULL MASTER ACCESS</span></td>
+                <td>3-Point Verification</td>
+              </tr>
+              <tr>
+                <td><b>Financial Reports &amp; P&amp;L</b></td>
+                <td><span class="p success">FULL MASTER ACCESS</span></td>
+                <td>Owner Only</td>
+              </tr>
+              <tr>
+                <td><b>POS Terminal Activation</b></td>
+                <td><span class="p success">FULL MASTER ACCESS</span></td>
+                <td>Configurable in Settings</td>
+              </tr>
             </tbody>
           </table>
         </div>
       `;
-    },
-
-    openCreateEmployeeModal() {
-      const modal = document.createElement('div');
-      modal.className = 'cc-modal-backdrop active';
-      modal.innerHTML = `
-        <div class="cc-modal" style="max-width:480px;">
-          <div class="cc-modal-header">
-            <h3 style="margin:0; font:700 18px var(--font-heading);">Add Staff Account</h3>
-            <button class="cc-modal-close" style="font-size:22px; cursor:pointer;">&times;</button>
-          </div>
-          <div class="cc-modal-body">
-            <label for="emp-name">Full Name *</label>
-            <input id="emp-name" class="i" placeholder="e.g. Nuwan Kumara" required>
-
-            <label for="emp-email" style="margin-top:10px;">Email Address *</label>
-            <input id="emp-email" type="email" class="i" placeholder="nuwan@ceyloncues.lk" required>
-
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:10px;">
-              <div>
-                <label for="emp-role">Role</label>
-                <select id="emp-role" class="i">
-                  <option value="shop_manager">Shop Manager</option>
-                  <option value="shop_cashier">Shop Cashier</option>
-                  <option value="warehouse_manager">Warehouse Manager</option>
-                  <option value="inventory_staff">Inventory Staff</option>
-                  <option value="finance_staff">Finance Staff</option>
-                </select>
-              </div>
-              <div>
-                <label for="emp-pin">POS 4-Digit PIN</label>
-                <input id="emp-pin" class="i" maxlength="4" placeholder="1234" inputmode="numeric">
-              </div>
-            </div>
-
-            <label for="emp-pw" style="margin-top:10px;">Initial Password *</label>
-            <input id="emp-pw" type="password" class="i" placeholder="••••••••" required>
-          </div>
-          <div class="cc-modal-footer">
-            <button class="b bo cc-modal-close">Cancel</button>
-            <button class="b" id="btn-save-emp">Create Employee</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-      const close = () => modal.remove();
-      modal.querySelectorAll('.cc-modal-close').forEach(b => b.onclick = close);
-
-      modal.querySelector('#btn-save-emp').onclick = async () => {
-        const name = document.getElementById('emp-name').value.trim();
-        const email = document.getElementById('emp-email').value.trim();
-        const role = document.getElementById('emp-role').value;
-        const pin = document.getElementById('emp-pin').value.trim();
-        const pw = document.getElementById('emp-pw').value;
-
-        try {
-          await ErpAPI.createEmployee({ name, email, role, pin, password: pw });
-          Utils.showToast('Employee created successfully.', 'success');
-          close();
-          ErpApp.renderEmployees(document.getElementById('erp-content-mount'));
-        } catch (e) {
-          Utils.showToast(e.message || 'Error creating employee', 'error');
-        }
-      };
     },
 
     // ==========================================
@@ -2841,6 +2791,22 @@
             </div>
           </div>
 
+          <h2 style="font-size:18px; margin:28px 0 16px;">Physical Shop &amp; POS Counter Status</h2>
+          <div style="background:#F9FAFB; border:1px solid #E5E7EB; border-radius:8px; padding:16px;">
+            <div style="display:grid; grid-template-columns:1fr 220px; gap:16px; align-items:center;">
+              <div>
+                <label for="bs-pos-enabled" style="margin:0; font-weight:700;">Point-of-Sale (POS) Terminal Active</label>
+                <p class="m" style="margin:4px 0 0; font-size:13px;">
+                  Controls physical showroom POS counter operations. Keep disabled while physical retail shop is pre-opening.
+                </p>
+              </div>
+              <select id="bs-pos-enabled" class="i" style="font-weight:700;">
+                <option value="0" ${s.pos_enabled === '0' || !s.pos_enabled ? 'selected' : ''}>0 (Inactive / Setup Mode)</option>
+                <option value="1" ${s.pos_enabled === '1' ? 'selected' : ''}>1 (Active / In Operation)</option>
+              </select>
+            </div>
+          </div>
+
           <h2 style="font-size:18px; margin:28px 0 16px;">Currency &amp; Delivery Thresholds</h2>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
             <div>
@@ -2867,6 +2833,7 @@
         bank_account_name: document.getElementById('bs-acc-name').value.trim(),
         bank_account_number: document.getElementById('bs-acc-num').value.trim(),
         bank_branch: document.getElementById('bs-branch').value.trim(),
+        pos_enabled: document.getElementById('bs-pos-enabled').value,
         free_delivery_min_order: parseFloat(document.getElementById('bs-free-del').value)
       };
 

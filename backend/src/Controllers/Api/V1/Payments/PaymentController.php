@@ -32,6 +32,26 @@ final class PaymentController
     public function submitBankTransfer(Request $request): void
     {
         $data = $request->getBody();
+
+        // Support resolving payment_id from order_id if not directly supplied
+        if (empty($data['payment_id']) && !empty($data['order_id'])) {
+            $db = \CeylonCues\Core\Database::getInstance()->getConnection();
+            $stmt = $db->prepare("SELECT id FROM payments WHERE order_id = :order_id ORDER BY id DESC LIMIT 1");
+            $stmt->execute([':order_id' => $data['order_id']]);
+            $paymentId = $stmt->fetchColumn();
+            if ($paymentId) {
+                $data['payment_id'] = (int)$paymentId;
+            }
+        }
+
+        if (empty($data['account_holder'])) {
+            $data['account_holder'] = $data['customer_name'] ?? 'Account Holder';
+        }
+
+        if (empty($data['transfer_date'])) {
+            $data['transfer_date'] = date('Y-m-d');
+        }
+
         $v = Validator::validate($data, [
             'payment_id'         => 'required|integer',
             'bank_name'          => 'required|string',
@@ -87,20 +107,26 @@ final class PaymentController
         $user = $request->getUser();
         $data = $request->getBody();
 
-        $v = Validator::validate($data, ['approved' => 'required|boolean']);
-        if (!$v['valid']) {
-            Response::validationError($v['errors']);
+        $isApproved = null;
+        if (isset($data['approved'])) {
+            $isApproved = filter_var($data['approved'], FILTER_VALIDATE_BOOLEAN);
+        } elseif (isset($data['status'])) {
+            $isApproved = strtolower(trim((string)$data['status'])) === 'approved';
+        }
+
+        if ($isApproved === null) {
+            Response::validationError(['approved' => ['The approval decision (status or approved) is required.']]);
         }
 
         try {
             $result = $this->payments->verifyBankTransfer(
                 $id,
-                (bool)$data['approved'],
+                $isApproved,
                 (int)$user['id'],
                 $data['rejection_reason'] ?? null
             );
 
-            $msg = $data['approved'] ? 'Bank transfer approved and marked as paid.' : 'Bank transfer rejected.';
+            $msg = $isApproved ? 'Bank transfer approved and marked as paid.' : 'Bank transfer rejected.';
             Response::json($result, $msg);
         } catch (Exception $e) {
             Response::error($e->getMessage(), 400);

@@ -1,5 +1,7 @@
 backend/vendor/
 backend/.env
+*.log
+storage/
 backend/storage/logs/*.log
 backend/storage/backups/*
 backend/storage/cache/*

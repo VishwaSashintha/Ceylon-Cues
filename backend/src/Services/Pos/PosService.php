@@ -471,7 +471,7 @@ final class PosService
             JOIN users u ON s.cashier_id = u.id
             JOIN inventory_locations l ON s.location_id = l.id
             WHERE {$whereClause}
-            ORDER BY s.created_at DESC
+            ORDER BY s.opened_at DESC, s.id DESC
             LIMIT :limit
         ");
         foreach ($params as $k => $v) {

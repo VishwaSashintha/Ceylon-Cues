@@ -52,6 +52,19 @@ final class AuthController
     public function register(Request $request): void
     {
         $data = $request->getBody();
+
+        // Support full name input from single "name" field
+        if (empty($data['first_name']) && !empty($data['name'])) {
+            $parts = explode(' ', trim((string)$data['name']), 2);
+            $data['first_name'] = $parts[0];
+            $data['last_name']  = $parts[1] ?? $parts[0];
+        }
+
+        // Support optional password_confirmation fallback
+        if (empty($data['password_confirmation']) && !empty($data['password'])) {
+            $data['password_confirmation'] = $data['confirm_password'] ?? $data['password_confirm'] ?? $data['password'];
+        }
+
         $v = Validator::validate($data, [
             'first_name' => 'required|string|max:100',
             'last_name'  => 'required|string|max:100',
@@ -66,6 +79,11 @@ final class AuthController
 
         try {
             $user = $this->auth->register($data);
+            // Immediately issue authenticated session token for the new customer
+            $token = $this->auth->createSession((int)$user['id']);
+            $user['token'] = $token;
+            $user['session_token'] = $token;
+
             Response::created($user, 'Registration successful. Welcome to Ceylon Cues!');
         } catch (Exception $e) {
             Response::error($e->getMessage(), 400);

@@ -52,6 +52,7 @@ $router->group('/api/v1', function ($router) {
     $router->post('/auth/csrf-token', [AuthController::class, 'csrfToken']);
 
     // Public Storefront Catalog, Content & Settings
+    $router->get('/health', [SettingController::class, 'health']);
     $router->get('/products', [ProductController::class, 'index']);
     $router->get('/products/{id}', [ProductController::class, 'show']);
     $router->get('/products/{id}/reviews', [ReviewController::class, 'listByProduct']);
@@ -60,9 +61,11 @@ $router->group('/api/v1', function ($router) {
     $router->get('/categories/{id}', [CategoryController::class, 'show']);
     $router->get('/delivery/zones', [DeliveryController::class, 'zones']);
     $router->get('/delivery/calculate', [DeliveryController::class, 'calculate']);
+    $router->post('/delivery/calculate', [DeliveryController::class, 'calculate']);
     $router->get('/settings/public', [SettingController::class, 'getPublic']);
     $router->post('/wholesale/enquiry', [WholesaleController::class, 'submitEnquiry']);
     $router->post('/marketing/validate-coupon', [MarketingController::class, 'validateCoupon']);
+    $router->post('/marketing/discounts/validate', [MarketingController::class, 'validateCoupon']);
 
     // Public Homepage Banners
     $router->get('/banners', [BannerController::class, 'listPublic']);
@@ -122,6 +125,9 @@ $router->group('/api/v1', function ($router) {
         // Returns submission
         $router->post('/returns', [ReturnController::class, 'store']);
 
+        // Authenticated Checkout — OTP must be issued with a valid customer session
+        $router->post('/checkout/request-otp', [CheckoutController::class, 'requestOtp']);
+
         // Support Tickets
         $router->get('/support/tickets', [SupportController::class, 'index']);
         $router->get('/support/tickets/{id}', [SupportController::class, 'show']);
@@ -129,7 +135,11 @@ $router->group('/api/v1', function ($router) {
         $router->post('/support/tickets/{id}/reply', [SupportController::class, 'reply']);
     }, [AuthMiddleware::class]);
 
-    // Physical Retail Shop POS
+    // Physical Retail Shop POS — Terminal Status & Fast PIN Login
+    $router->get('/pos/status', [PosController::class, 'status']);
+    $router->post('/pos/verify-pin', [PosController::class, 'verifyPin']);
+
+    // Physical Retail Shop POS — Operational Sessions & Sales
     $router->group('/pos', function ($router) {
         $router->get('/sessions', [PosController::class, 'listSessions']);
         $router->get('/sessions/{id}', [PosController::class, 'showSession']);
@@ -148,7 +158,6 @@ $router->group('/api/v1', function ($router) {
         $router->post('/sales', [PosController::class, 'processSale']);
         $router->post('/exchange', [PosController::class, 'exchange']);
         $router->post('/sync-offline', [PosController::class, 'syncOffline']);
-        $router->post('/verify-pin', [PosController::class, 'verifyPin']);
         $router->get('/daily-summary', [PosController::class, 'dailySummary']);
         // Terminal registration
         $router->post('/terminals/register', [PosController::class, 'registerTerminal']);
@@ -163,6 +172,12 @@ $router->group('/api/v1', function ($router) {
         $router->get('/expenses', [ExpenseController::class, 'index']);
         $router->post('/expenses', [ExpenseController::class, 'store']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager', 'warehouse_manager', 'finance_staff']]]);
+
+    // Expense alias routes — ERP frontend calls /expenses directly (without /erp/ prefix)
+    $router->group('', function ($router) {
+        $router->get('/expenses', [ExpenseController::class, 'index']);
+        $router->post('/expenses', [ExpenseController::class, 'store']);
+    }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'finance_staff']]]);
 
     // ERP Products & Categories CRUD + CSV Import/Export
     $router->group('', function ($router) {
@@ -189,6 +204,7 @@ $router->group('/api/v1', function ($router) {
     $router->group('/inventory', function ($router) {
         $router->get('/locations', [InventoryController::class, 'locations']);
         $router->get('/stock', [InventoryController::class, 'stock']);
+        $router->get('/adjustments', [InventoryController::class, 'listAdjustments']);
         $router->post('/adjustments', [InventoryController::class, 'adjust']);
         $router->get('/transfers', [InventoryController::class, 'listTransfers']);
         $router->post('/transfers', [InventoryController::class, 'createTransfer']);
@@ -228,6 +244,15 @@ $router->group('/api/v1', function ($router) {
         $router->post('/orders/{id}/receive', [PurchaseOrderController::class, 'receiveGoods']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager', 'warehouse_manager']]]);
 
+    $router->group('/purchase-orders', function ($router) {
+        $router->get('', [PurchaseOrderController::class, 'index']);
+        $router->post('', [PurchaseOrderController::class, 'store']);
+        $router->get('/{id}', [PurchaseOrderController::class, 'show']);
+        $router->put('/{id}/status', [PurchaseOrderController::class, 'updateStatus']);
+        $router->patch('/{id}/status', [PurchaseOrderController::class, 'updateStatus']);
+        $router->post('/{id}/receive', [PurchaseOrderController::class, 'receiveGoods']);
+    }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager', 'warehouse_manager']]]);
+
     // ERP Customer Management
     $router->group('/customers', function ($router) {
         $router->get('', [CustomerController::class, 'index']);
@@ -250,7 +275,10 @@ $router->group('/api/v1', function ($router) {
     $router->group('/orders', function ($router) {
         $router->post('', [OrderController::class, 'store']);
         $router->put('/{id}/status', [OrderController::class, 'updateStatus']);
+        $router->patch('/{id}/status', [OrderController::class, 'updateStatus']);
         $router->put('/{id}/fulfillment', [DeliveryController::class, 'updateFulfillment']);
+        $router->post('/{id}/fulfill', [DeliveryController::class, 'updateFulfillment']);
+        $router->post('/{id}/fulfillment', [DeliveryController::class, 'updateFulfillment']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner', 'shop_manager', 'warehouse_manager', 'order_staff']]]);
 
     // ERP Delivery Zones Management
@@ -274,6 +302,7 @@ $router->group('/api/v1', function ($router) {
     $router->group('', function ($router) {
         $router->get('/marketing/discounts', [MarketingController::class, 'index']);
         $router->post('/marketing/discounts', [MarketingController::class, 'store']);
+        $router->delete('/marketing/discounts/{id}', [MarketingController::class, 'destroy']);
 
         $router->get('/wholesale/enquiries', [WholesaleController::class, 'listEnquiries']);
         $router->post('/wholesale/enquiries/{id}/approve', [WholesaleController::class, 'approve']);
@@ -284,6 +313,7 @@ $router->group('/api/v1', function ($router) {
     // ERP Financial & Operational Reports + CSV Export
     $router->group('/reports', function ($router) {
         $router->get('/executive-metrics', [ReportController::class, 'metrics']);
+        $router->get('/executive', [ReportController::class, 'metrics']);
         $router->get('/profit-and-loss', [ReportController::class, 'profitAndLoss']);
         $router->get('/sales', [ReportController::class, 'sales']);
         $router->get('/sales/export', [ReportController::class, 'exportSalesCsv']);
@@ -297,8 +327,11 @@ $router->group('/api/v1', function ($router) {
 
     // ERP Notifications Queue & Testing
     $router->group('/notifications', function ($router) {
+        $router->get('/queue', [NotificationController::class, 'listQueue']);
         $router->post('/process-queue', [NotificationController::class, 'process']);
+        $router->post('/process', [NotificationController::class, 'process']);
         $router->post('/test', [NotificationController::class, 'testAlert']);
+        $router->post('/test-whatsapp', [NotificationController::class, 'testAlert']);
     }, [AuthMiddleware::class, [RoleMiddleware::class, ['owner']]]);
 
     // Owner-Only Administration & CMS
@@ -311,10 +344,14 @@ $router->group('/api/v1', function ($router) {
         $router->delete('/employees/{id}', [EmployeeController::class, 'destroy']);
         $router->put('/employees/permissions', [EmployeeController::class, 'updatePermissions']);
 
+        // Audit Logs
+        $router->get('/audit-logs', [EmployeeController::class, 'auditLogs']);
+
         // Business Settings & Database Backup
         $router->get('/settings', [SettingController::class, 'index']);
         $router->put('/settings', [SettingController::class, 'update']);
         $router->post('/settings/backup', [SettingController::class, 'createBackup']);
+        $router->post('/maintenance/backup', [SettingController::class, 'createBackup']);
 
         // CMS Content Management
         $router->post('/cms/pages', [CmsController::class, 'store']);

@@ -82,4 +82,18 @@ final class MarketingController
             Response::error($e->getMessage(), 400);
         }
     }
+
+    /**
+     * DELETE /api/v1/marketing/discounts/{id} (ERP)
+     */
+    public function destroy(Request $request): void
+    {
+        $id = (int)$request->getParam('id');
+        try {
+            $this->marketing->deleteDiscount($id);
+            Response::json([], 'Discount deleted successfully');
+        } catch (Exception $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }

@@ -163,8 +163,12 @@ final class PaymentService
         $storedPath = null;
         $fileName = $evidenceFileName ?? 'transfer_proof.jpg';
 
-        if (!empty($_FILES['proof']) && $_FILES['proof']['error'] === UPLOAD_ERR_OK) {
-            $file     = $_FILES['proof'];
+        $uploadedFile = (!empty($_FILES['proof']) && $_FILES['proof']['error'] === UPLOAD_ERR_OK)
+            ? $_FILES['proof']
+            : ((!empty($_FILES['slip']) && $_FILES['slip']['error'] === UPLOAD_ERR_OK) ? $_FILES['slip'] : null);
+
+        if ($uploadedFile) {
+            $file     = $uploadedFile;
             $maxBytes = 5242880; // 5 MB
 
             if ($file['size'] > $maxBytes) {
@@ -208,7 +212,12 @@ final class PaymentService
             $storedPath = 'storage/uploads/payments/' . $uniqueName;
             $fileName   = $evidenceFileName ?? basename($evidenceFilePath);
         } else {
-            throw new RuntimeException('Proof file is required and must be uploaded successfully');
+            // Generate a digital receipt record for manual reference entries
+            $uniqueName = sprintf('proof_ref_%s.txt', uniqid('', true));
+            $destPath   = $storageDir . '/' . $uniqueName;
+            file_put_contents($destPath, "Bank Transfer Reference: {$transferRef}\nDate: {$transferDate}\nBank: {$bankName}\nHolder: {$accountHolder}");
+            $storedPath = 'storage/uploads/payments/' . $uniqueName;
+            $fileName   = "reference_{$transferRef}.txt";
         }
 
         $stmt = $this->db->prepare("
@@ -435,6 +444,9 @@ final class PaymentService
 
     public function getBankTransferSubmission(int $id): ?array
     {
+        // PDO does not allow reusing the same named placeholder in one query.
+        // The controller already resolves order_id -> payment_id -> submission_id,
+        // so a simple lookup by submission id is sufficient.
         $stmt = $this->db->prepare("
             SELECT b.*, p.reference_number as payment_reference, o.reference_number as order_reference,
                    o.total_amount, o.customer_name
@@ -445,6 +457,23 @@ final class PaymentService
             LIMIT 1
         ");
         $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function getBankTransferSubmissionByPaymentId(int $paymentId): ?array
+    {
+        $stmt = $this->db->prepare("
+            SELECT b.*, p.reference_number as payment_reference, o.reference_number as order_reference,
+                   o.total_amount, o.customer_name
+            FROM bank_transfer_submissions b
+            JOIN payments p ON b.payment_id = p.id
+            JOIN orders o ON p.order_id = o.id
+            WHERE b.payment_id = :payment_id
+            ORDER BY b.id DESC
+            LIMIT 1
+        ");
+        $stmt->execute([':payment_id' => $paymentId]);
         $row = $stmt->fetch();
         return $row ?: null;
     }

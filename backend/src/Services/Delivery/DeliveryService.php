@@ -173,13 +173,12 @@ final class DeliveryService
 
         $updates = [
             'carrier_name = :carrier',
-            'carrier_tracking_number = :track',
-            'tracking_number = :track',
+            'carrier_tracking_number = :track1',
             'updated_at = NOW()',
         ];
         $params = [
             ':carrier' => $carrier,
-            ':track'   => $trackingNumber,
+            ':track1'  => $trackingNumber,
             ':id'      => $orderId,
         ];
 

@@ -91,6 +91,36 @@ final class AuthService
     }
 
     /**
+     * Create and store a new active session token for the given user.
+     *
+     * Stores hash('sha256', $token) in the database (matching login() and validateSession()).
+     * Returns the raw token to the caller, which must be sent as the Bearer token.
+     */
+    public function createSession(int $userId): string
+    {
+        $token     = bin2hex(random_bytes(32)); // 64 hex chars — raw token returned to caller
+        $expiresAt = date('Y-m-d H:i:s', time() + ($this->sessionLifetime * 60));
+        $ip        = $_SERVER['HTTP_X_FORWARDED_FOR']
+            ?? $_SERVER['HTTP_X_REAL_IP']
+            ?? $_SERVER['REMOTE_ADDR']
+            ?? '0.0.0.0';
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'API/POS Client';
+
+        $this->db->prepare(
+            'INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at, created_at)
+             VALUES (:user_id, :token, :ip, :user_agent, :expires_at, NOW())'
+        )->execute([
+            ':user_id'    => $userId,
+            ':token'      => hash('sha256', $token), // stored as SHA-256 hash — same as login()
+            ':ip'         => substr((string)$ip, 0, 45),
+            ':user_agent' => substr((string)$userAgent, 0, 255),
+            ':expires_at' => $expiresAt,
+        ]);
+
+        return $token; // return raw token; caller sends it as Authorization: Bearer <token>
+    }
+
+    /**
      * Authenticate a user with email and password.
      *
      * @param string $email
